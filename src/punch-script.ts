@@ -10,7 +10,7 @@ interface Status {
   error: unknown;
 }
 
-export const punch = async (actionArg: Action, dryRun = true): Promise<Status> => {
+export const punch = async (actionArg: Action, dryRun = false): Promise<Status> => {
   const waitForTimeout = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
   const browser = await puppeteer.launch({ devtools: false });
