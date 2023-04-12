@@ -13,8 +13,10 @@ const props = {
 
 function ActionItem() {
   const { isLoading, data } = usePromise(async () => {
-    const isAttend = await LocalStorage.getItem(attendProps.column);
-    const isLeave = await LocalStorage.getItem(leaveProps.column);
+    const [isAttend, isLeave] = await Promise.all([
+      LocalStorage.getItem(attendProps.column),
+      LocalStorage.getItem(leaveProps.column),
+    ]);
     return { isAttend, isLeave };
   });
 
