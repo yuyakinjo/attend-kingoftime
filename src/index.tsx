@@ -1,5 +1,5 @@
-import { PunchList } from "./components/PunchList";
+import { Punch } from "./components/Punch";
 
 export default function Command() {
-  return <PunchList />;
+  return <Punch />;
 }
