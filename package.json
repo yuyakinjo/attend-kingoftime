@@ -2,14 +2,14 @@
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "attend-kingoftime",
   "title": "attend-kingoftime",
-  "description": "",
+  "description": "attend the king of time",
   "icon": "command-icon.png",
   "author": "kinjo",
   "license": "MIT",
   "commands": [
     {
       "name": "index",
-      "title": "打刻",
+      "title": "king of time 打刻",
       "description": "attend the king of time",
       "mode": "view"
     }
