@@ -16,6 +16,7 @@
   ],
   "dependencies": {
     "@raycast/api": "^1.49.2",
+    "@raycast/utils": "^1.5.2",
     "puppeteer": "^19.8.5"
   },
   "devDependencies": {
