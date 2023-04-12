@@ -3,14 +3,14 @@ import { password, tokenKey, tokenValue, kingOfTimeurl, userName } from "./confi
 import { Action } from "./timestamp";
 
 // const [, , actionArg = "leave"] = process.argv;
-interface Status {
+interface Output {
   isSuccess: boolean;
   isFailed: boolean;
   isProcessing: boolean;
   error: unknown;
 }
 
-export const punch = async (actionArg: Action, dryRun = false): Promise<Status> => {
+export const punch = async (actionArg: Action, dryRun = true): Promise<Output> => {
   const waitForTimeout = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
   const browser = await puppeteer.launch({ devtools: false });
