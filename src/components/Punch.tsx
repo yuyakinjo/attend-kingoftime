@@ -1,7 +1,9 @@
-import { List, LocalStorage } from "@raycast/api";
+import { ActionPanel, List, LocalStorage, Action, showToast, Toast, Icon } from "@raycast/api";
 import { usePromise } from "@raycast/utils";
 import { props as attendProps, AttendItem } from "./AttendAction";
 import { props as leaveProps, LeaveItem } from "./LeaveAction";
+
+export const iconUrl = "https://s3.kingtime.jp/favicon.ico";
 
 const props = {
   navigationTitle: "King of Time 打刻",
@@ -9,6 +11,7 @@ const props = {
   loading: "Loading...",
   allDone: "本日は打刻済みです",
   done: true,
+  iconUrl,
 };
 
 function ActionItem() {
