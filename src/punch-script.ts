@@ -1,5 +1,5 @@
 import puppeteer from "puppeteer";
-import { password, tokenKey, tokenValue, kingOfTimeurl, userName } from "./config";
+import { password, tokenKey, tokenValue, kingOfTimeUrl, userName } from "./config";
 import { Action } from "./timestamp";
 
 // const [, , actionArg = "leave"] = process.argv;
@@ -17,9 +17,9 @@ export const punch = async (actionArg: Action, dryRun = true): Promise<Output> =
 
   try {
     const page = await browser.newPage();
-    await page.goto(kingOfTimeurl);
+    await page.goto(kingOfTimeUrl);
     await page.setCookie({ name: tokenKey, value: tokenValue });
-    await page.goto(kingOfTimeurl);
+    await page.goto(kingOfTimeUrl);
     const action = actionArg === "attend" ? "#attend" : "#leave";
     await page.waitForSelector(action);
     await page.click(action);
