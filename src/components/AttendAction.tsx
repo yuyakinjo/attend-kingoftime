@@ -9,7 +9,7 @@ const action = "attend";
 export const props = {
   action,
   column: `${getDateString()}-${action}`,
-  label: `✅ 出勤`,
+  label: `出勤 🏢🏃🏻‍♀️`,
   message: "おはようございます🌞",
   done: true,
   subtitle: "king of time",

@@ -8,7 +8,7 @@ const action = "leave";
 export const props = {
   action,
   column: `${getDateString()}-${action}`,
-  label: `🏠 退勤`,
+  label: `退勤 🏠🏃🏻`,
   message: "お疲れ様でした👋🏻",
   done: true,
   subtitle: "king of time",
