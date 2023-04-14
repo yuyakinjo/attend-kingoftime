@@ -1,6 +1,7 @@
-import { Action, ActionPanel, List, LocalStorage, Toast, showToast } from "@raycast/api";
+import { Action, ActionPanel, Icon, List, LocalStorage, Toast, showToast } from "@raycast/api";
 import { punch } from "../punch-script";
 import { getDateString } from "./AttendAction";
+import { iconUrl } from "./Punch";
 
 const action = "leave";
 
@@ -31,9 +32,19 @@ export const LeaveItem = () => (
       key={props.action}
       title={props.label}
       subtitle={props.subtitle}
+      icon={{ source: iconUrl }}
       actions={
         <ActionPanel>
           <Action title={props.label} onAction={onAction} />
+          <Action
+            title="退勤データの削除"
+            icon={Icon.Trash}
+            onAction={async () => {
+              showToast(Toast.Style.Animated, "削除中...");
+              await LocalStorage.removeItem(props.column);
+              showToast(Toast.Style.Success, `${props.label}データを削除しました`);
+            }}
+          ></Action>
         </ActionPanel>
       }
     />
