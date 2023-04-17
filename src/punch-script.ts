@@ -2,7 +2,6 @@ import puppeteer from "puppeteer";
 import { password, tokenKey, tokenValue, kingOfTimeUrl, userName } from "./config";
 import { Action } from "./timestamp";
 
-// const [, , actionArg = "leave"] = process.argv;
 interface Output {
   isSuccess: boolean;
   isFailed: boolean;
