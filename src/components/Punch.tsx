@@ -2,10 +2,11 @@ import { ActionPanel, List, LocalStorage, Action, showToast, Toast, Icon } from 
 import { usePromise } from "@raycast/utils";
 import { props as attendProps, AttendItem } from "./AttendAction";
 import { props as leaveProps, LeaveItem } from "./LeaveAction";
+import { GoToAdminSite } from "./GoToAdminSite";
 
 export const iconUrl = "https://s3.kingtime.jp/favicon.ico";
 
-const props = {
+const settings = {
   navigationTitle: "King of Time 打刻",
   placeholder: "打刻Typeを検索",
   loading: "Loading...",
@@ -25,22 +26,21 @@ function ActionItem() {
 
   return (
     <>
-      {isLoading ? (
-        <List.Item title={props.loading} />
-      ) : data?.isAttend && data?.isLeave ? (
-        <List.Item title={props.allDone} />
-      ) : data?.isAttend ? (
-        <LeaveItem />
-      ) : (
-        <AttendItem />
-      )}
+      <LeaveItem />
+      <AttendItem />
+      <GoToAdminSite />
     </>
   );
 }
 
-export const Punch = () => {
+export const Punch = (props: List.Props) => {
   return (
-    <List filtering={false} navigationTitle={props.navigationTitle} searchBarPlaceholder={props.placeholder}>
+    <List
+      {...props}
+      filtering={false}
+      navigationTitle={settings.navigationTitle}
+      searchBarPlaceholder={settings.placeholder}
+    >
       <ActionItem />
     </List>
   );
