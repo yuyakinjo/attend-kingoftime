@@ -1,7 +1,8 @@
 import { Action, ActionPanel, Icon, List, LocalStorage, Toast, showToast } from "@raycast/api";
 import { punch } from "../punch-script";
-import { getDateString } from "./AttendAction";
+import { getDateString } from "./AttendListItem";
 import { iconUrl } from "./Punch";
+import { ConfigFormValue } from "./ConfigForms";
 
 const action = "leave";
 
@@ -15,8 +16,9 @@ export const props = {
 };
 
 const onAction = async () => {
+  const config = await LocalStorage.allItems<ConfigFormValue>();
   showToast(Toast.Style.Animated, `${props.label}中...`);
-  const { isFailed, isSuccess, error } = await punch(props.action);
+  const { isFailed, isSuccess, error } = await punch({ action: props.action, ...config });
   if (isSuccess) {
     showToast(Toast.Style.Success, `${props.message}`);
     const dateString = getDateString();

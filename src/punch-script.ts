@@ -1,6 +1,13 @@
 import puppeteer from "puppeteer";
-import { password, tokenKey, tokenValue, kingOfTimeUrl, userName } from "./config";
+import { tokenKey, tokenValue } from "./config";
 import { Action } from "./timestamp";
+
+interface Props {
+  action: Action;
+  username: string;
+  password: string;
+  kingOfTimeUrl: string;
+}
 
 interface Output {
   isSuccess: boolean;
@@ -9,22 +16,21 @@ interface Output {
   error: unknown;
 }
 
-export const punch = async (actionArg: Action, dryRun = true): Promise<Output> => {
+export const punch = async ({ action, password, username, kingOfTimeUrl }: Props, dryRun = false): Promise<Output> => {
   const waitForTimeout = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
   const browser = await puppeteer.launch({ devtools: false });
-
   try {
     const page = await browser.newPage();
     await page.goto(kingOfTimeUrl);
     await page.setCookie({ name: tokenKey, value: tokenValue });
     await page.goto(kingOfTimeUrl);
-    const action = actionArg === "attend" ? "#attend" : "#leave";
-    await page.waitForSelector(action);
-    await page.click(action);
-    await page.waitForSelector(`[value*='${userName}']`);
+    const actionDom = action === Action.ATTEND ? "#attend" : "#leave";
+    await page.waitForSelector(actionDom);
+    await page.click(actionDom);
+    await page.waitForSelector(`[value*='${username}']`);
     await waitForTimeout(500);
-    await page.click(`[title*='${userName}']`);
+    await page.click(`[title*='${username}']`);
     await page.waitForSelector("#password_dialog");
     await waitForTimeout(500);
     await page.type(".input_password", password, { delay: 100 });
