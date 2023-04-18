@@ -1,5 +1,7 @@
 # Getting Started
 
+※ まだ改良中です
+
 1. move your raycast workspace
 
 ```sh
