@@ -86,7 +86,7 @@ export const ConfigForms = (props: Form.Props) => {
         placeholder="打刻画面に付与されているcookieの名前です"
         info="打刻画面で、htjwt_** という名前のcookieが付与されているので、その名前を入力してください"
         onChange={(value: ConfigFormValue["tokenKey"]) => {
-          setPassword(value);
+          setTokenKey(value);
           setValue("tokenKey", value);
         }}
       />
@@ -96,7 +96,7 @@ export const ConfigForms = (props: Form.Props) => {
         placeholder="打刻画面に付与されているcookieの値です"
         info="打刻画面で、htjwt_** という名前のcookieが付与されているので、その値を入力してください"
         onChange={(value: ConfigFormValue["token"]) => {
-          setPassword(value);
+          setToken(value);
           setValue("token", value);
         }}
       />
