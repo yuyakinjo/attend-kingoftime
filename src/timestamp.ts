@@ -1,5 +1,3 @@
-import { userNumber } from "./config";
-
 export class Action {
   static ATTEND = "attend";
   static LEAVE = "leave";
