@@ -1,8 +1,9 @@
-import { ActionPanel, List, LocalStorage, Action, showToast, Toast, Icon } from "@raycast/api";
+import { List, LocalStorage } from "@raycast/api";
 import { usePromise } from "@raycast/utils";
-import { props as attendProps, AttendItem } from "./AttendAction";
-import { props as leaveProps, LeaveItem } from "./LeaveAction";
+import { props as attendProps, AttendItem } from "./AttendListItem";
+import { props as leaveProps, LeaveItem } from "./LeaveListItem";
 import { GoToAdminSite } from "./GoToAdminSite";
+import { RedirectToConfig } from "./RedirectToConfig";
 
 export const iconUrl = "https://s3.kingtime.jp/favicon.ico";
 
