@@ -29,6 +29,7 @@ function ActionItem() {
       <LeaveItem />
       <AttendItem />
       <GoToAdminSite />
+      <RedirectToConfig />
     </>
   );
 }
