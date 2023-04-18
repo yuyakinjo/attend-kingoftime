@@ -59,7 +59,7 @@ export class KingOfTime {
   async punch(action?: ValueOf<Action>) {
     const waitForTimeout = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
     this.output = this.#start();
-    const browser = await puppeteer.launch({ devtools: this.props.devtools ?? true });
+    const browser = await puppeteer.launch({ devtools: this.props.devtools ?? false });
     try {
       const page = await browser.newPage();
       await page.goto(this.props.kingOfTimeUrl);
