@@ -4,11 +4,17 @@ import { useForm, FormValidation, useCachedState } from "@raycast/utils";
 export interface ConfigFormValue {
   username: string;
   password: string;
+  kingOfTimeUrl: string;
+  tokenKey: string;
+  token: string;
 }
 
 export const ConfigForms = (props: Form.Props) => {
   const [username, setUsername] = useCachedState<ConfigFormValue["username"]>("username");
   const [password, setPassword] = useCachedState<ConfigFormValue["password"]>("password");
+  const [kingOfTimeUrl, setkingOfTimeUrl] = useCachedState<ConfigFormValue["kingOfTimeUrl"]>("kingOfTimeUrl");
+  const [tokenKey, setTokenKey] = useCachedState<ConfigFormValue["tokenKey"]>("tokenKey");
+  const [token, setToken] = useCachedState<ConfigFormValue["token"]>("token");
 
   const { handleSubmit, itemProps, setValue } = useForm<ConfigFormValue>({
     onSubmit: async (values) => {
@@ -23,10 +29,15 @@ export const ConfigForms = (props: Form.Props) => {
     validation: {
       username: FormValidation.Required,
       password: FormValidation.Required,
+      token: FormValidation.Required,
+      tokenKey: FormValidation.Required,
     },
     initialValues: {
       username,
       password,
+      kingOfTimeUrl,
+      token,
+      tokenKey,
     },
   });
 
@@ -39,6 +50,16 @@ export const ConfigForms = (props: Form.Props) => {
         </ActionPanel>
       }
     >
+      <Form.TextField
+        {...itemProps.kingOfTimeUrl}
+        title="打刻URL"
+        placeholder="打刻画面のURLです"
+        info="打刻画面のURLです"
+        onChange={(value: ConfigFormValue["kingOfTimeUrl"]) => {
+          setkingOfTimeUrl(value);
+          setValue("kingOfTimeUrl", value);
+        }}
+      />
       <Form.TextField
         {...itemProps.username}
         title="ユーザーネーム"
@@ -57,6 +78,26 @@ export const ConfigForms = (props: Form.Props) => {
         onChange={(value: ConfigFormValue["password"]) => {
           setPassword(value);
           setValue("password", value);
+        }}
+      />
+      <Form.TextField
+        {...itemProps.tokenKey}
+        title="トークン名"
+        placeholder="打刻画面に付与されているcookieの名前です"
+        info="打刻画面で、htjwt_** という名前のcookieが付与されているので、その名前を入力してください"
+        onChange={(value: ConfigFormValue["tokenKey"]) => {
+          setPassword(value);
+          setValue("tokenKey", value);
+        }}
+      />
+      <Form.PasswordField
+        {...itemProps.token}
+        title="トークン名で取得した値"
+        placeholder="打刻画面に付与されているcookieの値です"
+        info="打刻画面で、htjwt_** という名前のcookieが付与されているので、その値を入力してください"
+        onChange={(value: ConfigFormValue["token"]) => {
+          setPassword(value);
+          setValue("token", value);
         }}
       />
     </Form>

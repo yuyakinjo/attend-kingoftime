@@ -1,5 +1,4 @@
 import puppeteer from "puppeteer";
-import { tokenKey, tokenValue } from "./config";
 import { Action } from "./timestamp";
 
 interface Props {
@@ -7,23 +6,18 @@ interface Props {
   username: string;
   password: string;
   kingOfTimeUrl: string;
+  token: string;
+  tokenKey: string;
 }
 
-interface Output {
-  isSuccess: boolean;
-  isFailed: boolean;
-  isProcessing: boolean;
-  error: unknown;
-}
-
-export const punch = async ({ action, password, username, kingOfTimeUrl }: Props, dryRun = false): Promise<Output> => {
+export const punch = async ({ action, password, username, kingOfTimeUrl, token, tokenKey }: Props, dryRun = true) => {
   const waitForTimeout = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
   const browser = await puppeteer.launch({ devtools: false });
   try {
     const page = await browser.newPage();
     await page.goto(kingOfTimeUrl);
-    await page.setCookie({ name: tokenKey, value: tokenValue });
+    await page.setCookie({ name: tokenKey, value: token });
     await page.goto(kingOfTimeUrl);
     const actionDom = action === Action.ATTEND ? "#attend" : "#leave";
     await page.waitForSelector(actionDom);
