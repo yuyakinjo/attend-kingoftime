@@ -28,10 +28,10 @@ export class KingOfTime {
   public output = { isSuccess: false, isFailed: false, isProcessing: false, error: "" };
 
   #selector = {
-    submitButton: `[type=submit]`,
     password: {
       dialog: `#password_dialog`,
       input: `.input_password`,
+      ok: `.ok_password`,
     },
     action: {
       attend: `#attend`,
@@ -49,7 +49,7 @@ export class KingOfTime {
 
   #success = () => ({ ...this.output, isSuccess: true, isProcessing: false });
 
-  #failed = (error: unknown) => ({ isSuccess: false, isFailed: true, isProcessing: false, error });
+  #failed = (error: unknown) => ({ ...this.output, isFailed: true, isProcessing: false, error });
 
   #getTarget(action: ValueOf<Action> = KingOfTime.Punch.Attend) {
     const isAttend = action === KingOfTime.Punch.Attend;
@@ -59,7 +59,7 @@ export class KingOfTime {
   async punch(action?: ValueOf<Action>) {
     const waitForTimeout = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
     this.output = this.#start();
-    const browser = await puppeteer.launch({ devtools: this.props.devtools ?? false });
+    const browser = await puppeteer.launch({ devtools: this.props.devtools ?? true });
     try {
       const page = await browser.newPage();
       await page.goto(this.props.kingOfTimeUrl);
@@ -75,12 +75,12 @@ export class KingOfTime {
       await waitForTimeout(500);
       await page.type(this.#selector.password.input, this.props.password, { delay: 100 });
       await waitForTimeout(500);
-      if (this.props.dryRun) {
+      if (this.props.dryRun ?? false) {
         await browser.close();
         return { isSuccess: true, isFailed: false, isProcessing: false, error: "" };
       }
       await page.evaluate(() => {
-        const submitButton = document?.querySelector<HTMLButtonElement>(this.#selector.submitButton);
+        const submitButton = document?.querySelector<HTMLButtonElement>(`[type=submit]`);
         submitButton?.click();
       });
       await waitForTimeout(1000);
