@@ -1,5 +1,5 @@
 import { Action, ActionPanel, Icon, List } from "@raycast/api";
-import { kingOfTimeAdminUrl } from "../config";
+const kingOfTimeAdminUrl = "https://s3.kingtime.jp/admin";
 
 export const GoToAdminSite = () => {
   return (

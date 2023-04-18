@@ -1,8 +1,7 @@
 import { Action, ActionPanel, Icon, List, LocalStorage, Toast, showToast } from "@raycast/api";
-import { punch } from "../punch-script";
+import { KingOfTime } from "../punch-script";
 import { getDateString } from "./AttendListItem";
 import { iconUrl } from "./Punch";
-import { ConfigFormValue } from "./ConfigForms";
 
 const action = "leave";
 
@@ -16,9 +15,9 @@ export const props = {
 };
 
 const onAction = async () => {
-  const config = await LocalStorage.allItems<ConfigFormValue>();
   showToast(Toast.Style.Animated, `${props.label}中...`);
-  const { isFailed, isSuccess, error } = await punch({ action: props.action, ...config });
+  const config = await KingOfTime.GetConfigFrom(LocalStorage);
+  const { isFailed, isSuccess, error } = await new KingOfTime(config).punch(KingOfTime.Punch.Attend);
   if (isSuccess) {
     showToast(Toast.Style.Success, `${props.message}`);
     const dateString = getDateString();
