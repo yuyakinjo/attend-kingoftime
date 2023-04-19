@@ -65,9 +65,9 @@ export class KingOfTime {
       await page.goto(this.props.kingOfTimeUrl);
       await page.setCookie({ name: this.props.tokenKey, value: this.props.token });
       await page.goto(this.props.kingOfTimeUrl);
-      const actionDom = this.#getTarget(action);
-      await page.waitForSelector(actionDom);
-      await page.click(actionDom);
+      const targetDom = this.#getTarget(action);
+      await page.waitForSelector(targetDom);
+      await page.click(targetDom);
       await page.waitForSelector(this.#selector.user.name);
       await waitForTimeout(500);
       await page.click(this.#selector.user.title);
@@ -77,7 +77,7 @@ export class KingOfTime {
       await waitForTimeout(500);
       if (this.props.dryRun ?? false) {
         await browser.close();
-        return { isSuccess: true, isFailed: false, isProcessing: false, error: "" };
+        return this.#success();
       }
       await page.evaluate(() => {
         const submitButton = document?.querySelector<HTMLButtonElement>(`[type=submit]`);
