@@ -17,7 +17,7 @@ gh repo clone yuyakinjo/attend-kingoftime
 3. npm install
 
 ```sh
-npm ci
+npm i
 ```
 
 4. build
