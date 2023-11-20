@@ -27,8 +27,8 @@ function ActionItem() {
 
   return (
     <>
-      <LeaveItem />
       <AttendItem />
+      <LeaveItem />
       <GoToAdminSite />
       <RedirectToConfig />
     </>
