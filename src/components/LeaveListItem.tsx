@@ -17,7 +17,7 @@ export const props = {
 const onAction = async () => {
   showToast(Toast.Style.Animated, `${props.label}...`);
   const config = await KingOfTime.GetConfigFrom(LocalStorage);
-  const { isFailed, isSuccess, error } = await new KingOfTime(config).punch(KingOfTime.Punch.Leave);
+  const { isFailed, isSuccess, error } = await new KingOfTime(config).punch(KingOfTime.Action.Leave);
   if (isSuccess) {
     showToast(Toast.Style.Success, `${props.message}`);
     const dateString = getDateString();

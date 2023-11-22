@@ -1,7 +1,7 @@
-import puppeteer from "puppeteer";
-import { Action, ValueOf } from "./types/types";
 import { LocalStorage } from "@raycast/api";
+import puppeteer from "puppeteer";
 import { ConfigFormValue } from "./components/ConfigForms";
+import { Action, ValueOf } from "./types/types";
 
 interface Props extends ConfigFormValue {
   dryRun?: boolean;
@@ -9,7 +9,7 @@ interface Props extends ConfigFormValue {
 }
 
 export class KingOfTime {
-  static Punch = {
+  static Action = {
     Attend: "attend",
     Leave: "leave",
   } as const;
@@ -51,8 +51,8 @@ export class KingOfTime {
 
   #failed = (error: unknown) => ({ ...this.output, isFailed: true, isProcessing: false, error });
 
-  #getTarget(action: ValueOf<Action> = KingOfTime.Punch.Attend) {
-    const isAttend = action === KingOfTime.Punch.Attend;
+  #getTarget(action: ValueOf<Action> = KingOfTime.Action.Attend) {
+    const isAttend = action === KingOfTime.Action.Attend;
     return isAttend ? this.#selector.action.attend : this.#selector.action.leave;
   }
 
