@@ -1,7 +1,7 @@
 {
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "attend-kingoftime",
-  "title": "attend-kingoftime",
+  "title": "Attend-kingoftime",
   "description": "attend the king of time",
   "icon": "command-icon.png",
   "author": "yuyakinjo",
@@ -9,7 +9,7 @@
   "commands": [
     {
       "name": "index",
-      "title": "king of time 打刻",
+      "title": "King of Time 打刻",
       "description": "attend the king of time",
       "mode": "view"
     }
