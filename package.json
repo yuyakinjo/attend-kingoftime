@@ -17,7 +17,7 @@
   "dependencies": {
     "@raycast/api": "^1.49.2",
     "@raycast/utils": "^1.5.2",
-    "puppeteer": "^19.8.5"
+    "puppeteer": "^21.6.1"
   },
   "devDependencies": {
     "@raycast/eslint-config": "1.0.5",
