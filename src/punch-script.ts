@@ -1,7 +1,7 @@
-import { LocalStorage } from "@raycast/api";
+import type { LocalStorage } from "@raycast/api";
 import puppeteer from "puppeteer";
-import { ConfigFormValue } from "./components/ConfigForms";
-import { Action, ValueOf } from "./types/types";
+import type { ConfigFormValue } from "./components/ConfigForms";
+import type { Action, ValueOf } from "./types/types";
 
 interface Props extends ConfigFormValue {
   dryRun?: boolean;
@@ -25,17 +25,22 @@ export class KingOfTime {
     };
   };
 
-  public output = { isSuccess: false, isFailed: false, isProcessing: false, error: "" };
+  public output = {
+    isSuccess: false,
+    isFailed: false,
+    isProcessing: false,
+    error: "",
+  };
 
   #selector = {
     password: {
-      dialog: `#password_dialog`,
-      input: `.input_password`,
-      ok: `.ok_password`,
+      dialog: "#password_dialog",
+      input: ".input_password",
+      ok: ".ok_password",
     },
     action: {
-      attend: `#attend`,
-      leave: `#leave`,
+      attend: "#attend",
+      leave: "#leave",
     },
     user: {
       name: `[value*='${this.props.username}']`,
@@ -49,7 +54,12 @@ export class KingOfTime {
 
   #success = () => ({ ...this.output, isSuccess: true, isProcessing: false });
 
-  #failed = (error: unknown) => ({ ...this.output, isFailed: true, isProcessing: false, error });
+  #failed = (error: unknown) => ({
+    ...this.output,
+    isFailed: true,
+    isProcessing: false,
+    error,
+  });
 
   #getTarget(action: ValueOf<Action> = KingOfTime.Action.Attend) {
     const isAttend = action === KingOfTime.Action.Attend;
@@ -63,7 +73,10 @@ export class KingOfTime {
     try {
       const page = await browser.newPage();
       await page.goto(this.props.kingOfTimeUrl);
-      await page.setCookie({ name: this.props.tokenKey, value: this.props.token });
+      await page.setCookie({
+        name: this.props.tokenKey,
+        value: this.props.token,
+      });
       await page.goto(this.props.kingOfTimeUrl);
       const targetDom = this.#getTarget(action);
       await page.waitForSelector(targetDom);
@@ -73,14 +86,16 @@ export class KingOfTime {
       await page.click(this.#selector.user.title);
       await page.waitForSelector(this.#selector.password.dialog);
       await waitForTimeout(500);
-      await page.type(this.#selector.password.input, this.props.password, { delay: 100 });
+      await page.type(this.#selector.password.input, this.props.password, {
+        delay: 100,
+      });
       await waitForTimeout(500);
       if (this.props.dryRun ?? false) {
         await browser.close();
         return this.#success();
       }
       await page.evaluate(() => {
-        const submitButton = document?.querySelector<HTMLButtonElement>(`[type=submit]`);
+        const submitButton = document?.querySelector<HTMLButtonElement>("[type=submit]");
         submitButton?.click();
       });
       await waitForTimeout(1000);
