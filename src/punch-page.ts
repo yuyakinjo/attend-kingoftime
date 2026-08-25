@@ -1,4 +1,4 @@
-import { TimeoutError, type Dialog, type HTTPResponse, type Page } from "puppeteer";
+import { TimeoutError, type Dialog, type HTTPRequest, type HTTPResponse, type Page } from "puppeteer";
 import type { ConfigFormValue } from "./configuration";
 import {
   readPunchHistoryLines,
@@ -15,9 +15,20 @@ const PUNCH_COMPLETION_TIMEOUT_MS = 10_000; // 10秒で打刻完了を確認で�
 const RECORDER_DATE_ERROR = "打刻画面の日付を確認できないため、重複チェックを実行できませんでした。";
 const RECORDER_READY_ERROR = "打刻画面の初期化を10秒以内に確認できませんでした。もう一度お試しください。";
 const HISTORY_LOAD_ERROR = "打刻履歴を10秒以内に読み込めませんでした。通信状態を確認してもう一度お試しください。";
+const HISTORY_DATE_ERROR = "打刻画面の日付を確認できないため、本日の打刻履歴を取得できませんでした。";
 
 type PunchAction = "attend" | "leave";
 type RecorderConfig = Pick<ConfigFormValue, "kingOfTimeUrl" | "token" | "tokenKey">;
+
+interface PunchHistoryEntry {
+  date: string;
+  time: string;
+}
+
+export interface TodayPunchTimes {
+  attend?: string;
+  leave?: string;
+}
 
 const actionSelector: Record<PunchAction, string> = {
   attend: "#attend",
@@ -36,12 +47,7 @@ const normalizeRecorderDate = (value: string) => {
   return match ? `${Number(match[1])}/${Number(match[2])}` : undefined;
 };
 
-const findDuplicatePunchTime = (
-  historyLines: string[],
-  expectedDate: string,
-  action: PunchAction,
-  username: string,
-) => {
+const findPunchEntry = (historyLines: string[], expectedDate: string, action: PunchAction, username: string) => {
   const expectedUsername = normalizeHistoryText(username);
 
   for (const line of historyLines) {
@@ -52,11 +58,20 @@ const findDuplicatePunchTime = (
       match[3] === actionLabel[action] &&
       normalizeHistoryText(match[4]) === expectedUsername
     ) {
-      return match[2];
+      return { date: match[1], time: match[2] } satisfies PunchHistoryEntry;
     }
   }
 
   return undefined;
+};
+
+const formatPunchDateTime = (entry: PunchHistoryEntry | undefined) =>
+  entry ? `${entry.date} ${entry.time}` : undefined;
+
+const readCurrentRecorderHistory = async (page: Page) => {
+  await waitForRecorderDateLoaded(page, { timeout: INTERACTION_TIMEOUT_MS });
+  const [recorderDate, historyLines] = await Promise.all([readRecorderDate(page), readPunchHistoryLines(page)]);
+  return { expectedDate: normalizeRecorderDate(recorderDate), historyLines };
 };
 
 const escapeCssString = (value: string) =>
@@ -98,10 +113,13 @@ const getHistoryCount = async (response: HTTPResponse) => {
   return historyCount;
 };
 
-const isRecorderEndpointResponse = (response: HTTPResponse, endpoint: string) => {
-  const pathname = new URL(response.url()).pathname.replace(/\/+$/u, "");
+const isRecorderEndpointUrl = (url: string, endpoint: string) => {
+  const pathname = new URL(url).pathname.replace(/\/+$/u, "");
   return pathname.split("/").at(-1) === endpoint;
 };
+
+const isRecorderEndpointResponse = (response: HTTPResponse, endpoint: string) =>
+  isRecorderEndpointUrl(response.url(), endpoint);
 
 export const prepareRecorderPage = async (page: Page, config: RecorderConfig) => {
   page.setDefaultTimeout(INTERACTION_TIMEOUT_MS);
@@ -117,10 +135,15 @@ export const prepareRecorderPage = async (page: Page, config: RecorderConfig) =>
   });
 
   const abortController = new AbortController();
-  const historyResponsePromise = page.waitForResponse(
-    (response) => isRecorderEndpointResponse(response, "get_log_list"),
-    { signal: abortController.signal, timeout: 0 },
-  );
+  const historyRequests = new WeakSet<HTTPRequest>();
+  const historyRequestHandler = (request: HTTPRequest) => {
+    if (isRecorderEndpointUrl(request.url(), "get_log_list")) historyRequests.add(request);
+  };
+  page.on("request", historyRequestHandler);
+  const historyResponsePromise = page.waitForResponse((response) => historyRequests.has(response.request()), {
+    signal: abortController.signal,
+    timeout: 0,
+  });
   // Prevent a rejection from being reported as unhandled while navigation is in progress.
   void historyResponsePromise.catch(() => undefined);
 
@@ -150,6 +173,7 @@ export const prepareRecorderPage = async (page: Page, config: RecorderConfig) =>
     }
   } finally {
     abortController.abort();
+    page.off("request", historyRequestHandler);
   }
 };
 
@@ -158,24 +182,42 @@ export const selectPunchAction = async (page: Page, action: PunchAction) => {
 };
 
 export const ensurePunchIsNotDuplicate = async (page: Page, action: PunchAction, username: string) => {
+  let recorderHistory: Awaited<ReturnType<typeof readCurrentRecorderHistory>>;
   try {
-    await waitForRecorderDateLoaded(page, { timeout: INTERACTION_TIMEOUT_MS });
+    recorderHistory = await readCurrentRecorderHistory(page);
   } catch (error) {
     if (error instanceof TimeoutError) throw new Error(RECORDER_DATE_ERROR);
     throw error;
   }
 
-  const [recorderDate, historyLines] = await Promise.all([readRecorderDate(page), readPunchHistoryLines(page)]);
-  const expectedDate = normalizeRecorderDate(recorderDate);
+  const { expectedDate, historyLines } = recorderHistory;
   if (!expectedDate) throw new Error(RECORDER_DATE_ERROR);
 
-  const duplicateTime = findDuplicatePunchTime(historyLines, expectedDate, action, username);
+  const duplicateEntry = findPunchEntry(historyLines, expectedDate, action, username);
 
-  if (duplicateTime) {
+  if (duplicateEntry) {
     throw new Error(
-      `本日 ${duplicateTime} にすでに「${actionLabel[action]}」を打刻済みです。重複打刻を防ぐため処理を中止しました。`,
+      `本日 ${duplicateEntry.time} にすでに「${actionLabel[action]}」を打刻済みです。重複打刻を防ぐため処理を中止しました。`,
     );
   }
+};
+
+export const readTodayPunchTimes = async (page: Page, username: string): Promise<TodayPunchTimes> => {
+  let recorderHistory: Awaited<ReturnType<typeof readCurrentRecorderHistory>>;
+  try {
+    recorderHistory = await readCurrentRecorderHistory(page);
+  } catch (error) {
+    if (error instanceof TimeoutError) throw new Error(HISTORY_DATE_ERROR);
+    throw error;
+  }
+
+  const { expectedDate, historyLines } = recorderHistory;
+  if (!expectedDate) throw new Error(HISTORY_DATE_ERROR);
+
+  return {
+    attend: formatPunchDateTime(findPunchEntry(historyLines, expectedDate, "attend", username)),
+    leave: formatPunchDateTime(findPunchEntry(historyLines, expectedDate, "leave", username)),
+  };
 };
 
 export const selectEmployee = async (page: Page, username: string) => {

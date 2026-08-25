@@ -1,28 +1,25 @@
-import { Action, ActionPanel, Icon, List, LocalStorage, Toast, showToast } from "@raycast/api";
+import { Action, ActionPanel, List, LocalStorage, Toast, showToast } from "@raycast/api";
 import { KingOfTime } from "../punch-script";
-import { getDateString } from "./AttendListItem";
 import { iconUrl } from "./Punch";
 
-const action = "leave";
-
-export const props = {
-  action,
-  column: `${getDateString()}-${action}`,
+const props = {
   label: `退勤 🏠🏃🏻`,
   message: "お疲れ様でした👋🏻",
-  done: true,
-  subtitle: "king of time",
 };
 
-const onAction = async () => {
+interface LeaveItemProps {
+  onPunchSuccess?: () => void;
+  subtitle: string;
+}
+
+const onAction = async (onPunchSuccess?: () => void) => {
   await showToast(Toast.Style.Animated, `${props.label}...`);
   try {
     const config = await KingOfTime.GetConfigFrom(LocalStorage);
     const { isFailed, isSuccess, error } = await new KingOfTime(config).punch(KingOfTime.Action.Leave);
     if (isSuccess) {
       await showToast(Toast.Style.Success, `${props.message}`);
-      const dateString = getDateString();
-      await LocalStorage.setItem(`${dateString}-${props.action}`, props.done);
+      onPunchSuccess?.();
     }
     if (isFailed) await showToast(Toast.Style.Failure, `${error}`);
   } catch (error) {
@@ -31,25 +28,16 @@ const onAction = async () => {
   }
 };
 
-export const LeaveItem = () => (
+export const LeaveItem = ({ onPunchSuccess, subtitle }: LeaveItemProps) => (
   <>
     <List.Item
-      key={props.action}
+      id="leave"
       title={props.label}
-      subtitle={props.subtitle}
+      subtitle={subtitle}
       icon={{ source: iconUrl }}
       actions={
         <ActionPanel>
-          <Action title={props.label} onAction={onAction} />
-          <Action
-            title="退勤データの削除"
-            icon={Icon.Trash}
-            onAction={async () => {
-              showToast(Toast.Style.Animated, "削除中...");
-              await LocalStorage.removeItem(props.column);
-              showToast(Toast.Style.Success, `${props.label}データを削除しました`);
-            }}
-          ></Action>
+          <Action title={props.label} onAction={() => onAction(onPunchSuccess)} />
         </ActionPanel>
       }
     />

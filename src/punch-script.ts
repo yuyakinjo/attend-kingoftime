@@ -1,13 +1,15 @@
 import type { LocalStorage } from "@raycast/api";
-import puppeteer, { type Browser } from "puppeteer";
+import puppeteer, { type Browser, type Page } from "puppeteer";
 import { getStoredConfig, type ConfigFormValue } from "./configuration";
 import {
   ensurePunchIsNotDuplicate,
   enterPassword,
   prepareRecorderPage,
+  readTodayPunchTimes,
   selectEmployee,
   selectPunchAction,
   submitPunchAndWaitForHistory,
+  type TodayPunchTimes,
 } from "./punch-page";
 import type { Action, ValueOf } from "./types/types";
 
@@ -46,27 +48,39 @@ export class KingOfTime {
     error,
   });
 
-  async punch(action: ValueOf<Action> = KingOfTime.Action.Attend) {
-    this.output = this.#start();
+  async #withPreparedPage<Result>(callback: (page: Page) => Promise<Result>) {
     let browser: Browser | undefined;
     try {
       browser = await puppeteer.launch({ devtools: this.props.devtools ?? false });
       const page = await browser.newPage();
       await prepareRecorderPage(page, this.props);
-      if (!this.props.dryRun) await ensurePunchIsNotDuplicate(page, action, this.props.username);
-      await selectPunchAction(page, action);
-      await selectEmployee(page, this.props.username);
-      await enterPassword(page, this.props.password);
-      if (!this.props.dryRun) await submitPunchAndWaitForHistory(page, action, this.props.username);
-      return this.#success();
-    } catch (error) {
-      return this.#failed(error);
+      return await callback(page);
     } finally {
       try {
         await browser?.close();
       } catch {
-        // Keep the punch result when browser cleanup fails.
+        // Keep the operation result when browser cleanup fails.
       }
+    }
+  }
+
+  async getTodayPunchTimes(): Promise<TodayPunchTimes> {
+    return this.#withPreparedPage((page) => readTodayPunchTimes(page, this.props.username));
+  }
+
+  async punch(action: ValueOf<Action> = KingOfTime.Action.Attend) {
+    this.output = this.#start();
+    try {
+      await this.#withPreparedPage(async (page) => {
+        if (!this.props.dryRun) await ensurePunchIsNotDuplicate(page, action, this.props.username);
+        await selectPunchAction(page, action);
+        await selectEmployee(page, this.props.username);
+        await enterPassword(page, this.props.password);
+        if (!this.props.dryRun) await submitPunchAndWaitForHistory(page, action, this.props.username);
+      });
+      return this.#success();
+    } catch (error) {
+      return this.#failed(error);
     }
   }
 }
