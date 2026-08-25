@@ -2,6 +2,7 @@ import type { LocalStorage } from "@raycast/api";
 import puppeteer, { type Browser } from "puppeteer";
 import { getStoredConfig, type ConfigFormValue } from "./configuration";
 import {
+  ensurePunchIsNotDuplicate,
   enterPassword,
   prepareRecorderPage,
   selectEmployee,
@@ -52,6 +53,7 @@ export class KingOfTime {
       browser = await puppeteer.launch({ devtools: this.props.devtools ?? false });
       const page = await browser.newPage();
       await prepareRecorderPage(page, this.props);
+      if (!this.props.dryRun) await ensurePunchIsNotDuplicate(page, action, this.props.username);
       await selectPunchAction(page, action);
       await selectEmployee(page, this.props.username);
       await enterPassword(page, this.props.password);

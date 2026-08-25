@@ -2,14 +2,17 @@ import { TimeoutError, type Dialog, type HTTPResponse, type Page } from "puppete
 import type { ConfigFormValue } from "./configuration";
 import {
   readPunchHistoryLines,
+  readRecorderDate,
   waitForHistoryEntriesRendered,
   waitForNewPunchHistoryEntry,
+  waitForRecorderDateLoaded,
   waitForRecorderTranslationsLoaded,
   waitForVisiblePasswordInputValue,
 } from "./punch-waits";
 
 const INTERACTION_TIMEOUT_MS = 15_000;
 const PUNCH_COMPLETION_TIMEOUT_MS = 180_000;
+const RECORDER_DATE_ERROR = "打刻画面の日付を確認できないため、重複チェックを実行できませんでした。";
 
 type PunchAction = "attend" | "leave";
 type RecorderConfig = Pick<ConfigFormValue, "kingOfTimeUrl" | "token" | "tokenKey">;
@@ -22,6 +25,36 @@ const actionSelector: Record<PunchAction, string> = {
 const actionLabel: Record<PunchAction, "出勤" | "退勤"> = {
   attend: "出勤",
   leave: "退勤",
+};
+
+const normalizeHistoryText = (value: string) => value.replace(/\s+/gu, " ").trim();
+
+const normalizeRecorderDate = (value: string) => {
+  const match = value.match(/^(\d{1,2})\/(\d{1,2})$/u);
+  return match ? `${Number(match[1])}/${Number(match[2])}` : undefined;
+};
+
+const findDuplicatePunchTime = (
+  historyLines: string[],
+  expectedDate: string,
+  action: PunchAction,
+  username: string,
+) => {
+  const expectedUsername = normalizeHistoryText(username);
+
+  for (const line of historyLines) {
+    const match = line.match(/^(\d{1,2}\/\d{1,2})\s+(\d{1,2}:\d{2})\s*(出勤|退勤)\s+(.+)$/u);
+    if (
+      match &&
+      normalizeRecorderDate(match[1]) === expectedDate &&
+      match[3] === actionLabel[action] &&
+      normalizeHistoryText(match[4]) === expectedUsername
+    ) {
+      return match[2];
+    }
+  }
+
+  return undefined;
 };
 
 const escapeCssString = (value: string) =>
@@ -92,6 +125,27 @@ export const prepareRecorderPage = async (page: Page, config: RecorderConfig) =>
 
 export const selectPunchAction = async (page: Page, action: PunchAction) => {
   await waitForSelectorAndClick(page, actionSelector[action]);
+};
+
+export const ensurePunchIsNotDuplicate = async (page: Page, action: PunchAction, username: string) => {
+  try {
+    await waitForRecorderDateLoaded(page, { timeout: INTERACTION_TIMEOUT_MS });
+  } catch (error) {
+    if (error instanceof TimeoutError) throw new Error(RECORDER_DATE_ERROR);
+    throw error;
+  }
+
+  const [recorderDate, historyLines] = await Promise.all([readRecorderDate(page), readPunchHistoryLines(page)]);
+  const expectedDate = normalizeRecorderDate(recorderDate);
+  if (!expectedDate) throw new Error(RECORDER_DATE_ERROR);
+
+  const duplicateTime = findDuplicatePunchTime(historyLines, expectedDate, action, username);
+
+  if (duplicateTime) {
+    throw new Error(
+      `本日 ${duplicateTime} にすでに「${actionLabel[action]}」を打刻済みです。重複打刻を防ぐため処理を中止しました。`,
+    );
+  }
 };
 
 export const selectEmployee = async (page: Page, username: string) => {

@@ -19,6 +19,11 @@ const recorderTranslationsAreLoaded = () => {
   return typeof data?.CloudRecorder016 === "string";
 };
 
+const recorderDateIsLoaded = () => {
+  const date = document.querySelector<HTMLInputElement>("#date")?.value.trim() ?? "";
+  return /^\d{1,2}\/\d{1,2}$/u.test(date);
+};
+
 const visiblePasswordInputHasExpectedValue = (expectedPassword: string) =>
   Array.from(document.querySelectorAll<HTMLInputElement>(".input_password")).some(
     (input) => input.getClientRects().length > 0 && input.value === expectedPassword,
@@ -70,11 +75,18 @@ export const waitForRecorderTranslationsLoaded = async (page: Page, options: Wai
   await page.waitForFunction(recorderTranslationsAreLoaded, { polling: "raf", ...options });
 };
 
+export const waitForRecorderDateLoaded = async (page: Page, options: WaitOptions) => {
+  await page.waitForFunction(recorderDateIsLoaded, { polling: "raf", ...options });
+};
+
 export const waitForVisiblePasswordInputValue = async (page: Page, expectedPassword: string, options: WaitOptions) => {
   await page.waitForFunction(visiblePasswordInputHasExpectedValue, { polling: "raf", ...options }, expectedPassword);
 };
 
 export const readPunchHistoryLines = async (page: Page) => page.$eval("#log", readHistoryLines);
+
+export const readRecorderDate = async (page: Page) =>
+  page.$eval("#date", (element) => (element as HTMLInputElement).value.trim());
 
 export const waitForNewPunchHistoryEntry = async (
   page: Page,
