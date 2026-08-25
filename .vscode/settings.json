@@ -5,5 +5,7 @@
     "source.format.oxc": "always",
     "source.fixAll.oxc": "always"
   },
-  "oxc.lint.run": "onSave"
+  "oxc.lint.run": "onSave",
+  // GUI-launched VS Code may not have node on PATH; run the oxlint CLI with VS Code's bundled Node.
+  "oxc.useExecPath": true
 }

@@ -17,7 +17,7 @@ const settings = {
 };
 
 function ActionItem() {
-  const { isLoading, data } = usePromise(async () => {
+  usePromise(async () => {
     const [isAttend, isLeave] = await Promise.all([
       LocalStorage.getItem(attendProps.column),
       LocalStorage.getItem(leaveProps.column),
