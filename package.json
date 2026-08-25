@@ -6,6 +6,7 @@
   "icon": "command-icon.png",
   "author": "yuyakinjo",
   "license": "MIT",
+  "packageManager": "bun@1.4.0",
   "commands": [
     {
       "name": "index",
@@ -15,16 +16,17 @@
     }
   ],
   "dependencies": {
-    "@raycast/api": "^1.49.2",
-    "@raycast/utils": "^1.5.2",
-    "puppeteer": "^23.6.0"
+    "@raycast/api": "^2.0.5",
+    "@raycast/utils": "^2.3.0",
+    "puppeteer": "^25.8.0"
   },
   "devDependencies": {
-    "@types/node": "18.8.3",
-    "@types/react": "18.0.9",
     "oxfmt": "^0.65.0",
     "oxlint": "^1.80.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22.22.2"
   },
   "scripts": {
     "build": "ray build -e dist",

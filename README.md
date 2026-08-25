@@ -14,16 +14,16 @@ cd your workspace
 gh repo clone yuyakinjo/attend-kingoftime
 ```
 
-3. npm install
+3. install dependencies
 
 ```sh
-npm ci
+bun install --frozen-lockfile
 ```
 
 4. build
 
 ```sh
-npm run dev
+bun run dev
 ```
 
 Done!

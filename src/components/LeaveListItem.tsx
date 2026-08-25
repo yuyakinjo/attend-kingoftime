@@ -15,16 +15,20 @@ export const props = {
 };
 
 const onAction = async () => {
-  showToast(Toast.Style.Animated, `${props.label}...`);
-  const config = await KingOfTime.GetConfigFrom(LocalStorage);
-  const { isFailed, isSuccess, error } = await new KingOfTime(config).punch(KingOfTime.Action.Leave);
-  if (isSuccess) {
-    showToast(Toast.Style.Success, `${props.message}`);
-    const dateString = getDateString();
-    await LocalStorage.setItem(`${dateString}-${props.action}`, props.done);
+  await showToast(Toast.Style.Animated, `${props.label}...`);
+  try {
+    const config = await KingOfTime.GetConfigFrom(LocalStorage);
+    const { isFailed, isSuccess, error } = await new KingOfTime(config).punch(KingOfTime.Action.Leave);
+    if (isSuccess) {
+      await showToast(Toast.Style.Success, `${props.message}`);
+      const dateString = getDateString();
+      await LocalStorage.setItem(`${dateString}-${props.action}`, props.done);
+    }
+    if (isFailed) await showToast(Toast.Style.Failure, `${error}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await showToast(Toast.Style.Failure, message);
   }
-  if (isFailed) showToast(Toast.Style.Failure, `${error}`);
-  return;
 };
 
 export const LeaveItem = () => (

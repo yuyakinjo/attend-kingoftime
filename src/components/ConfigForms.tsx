@@ -1,44 +1,77 @@
-import { Action, ActionPanel, Form, LocalStorage, showToast, Toast } from "@raycast/api";
-import { useForm, FormValidation, useCachedState } from "@raycast/utils";
+import { Action, ActionPanel, Cache, Form, LocalStorage, showToast, Toast } from "@raycast/api";
+import { useForm, FormValidation, usePromise } from "@raycast/utils";
+import {
+  configKeys,
+  type ConfigFormValue,
+  getConfigError,
+  getConfigInitialValues,
+  loadConfigSnapshot,
+  saveConfig,
+} from "../configuration";
 
-export interface ConfigFormValue {
-  username: string;
-  password: string;
-  kingOfTimeUrl: string;
-  tokenKey: string;
-  token: string;
+export type { ConfigFormValue } from "../configuration";
+
+interface ConfigFormsProps extends Form.Props {
+  onSaved?: () => unknown | Promise<unknown>;
 }
 
-export const ConfigForms = (props: Form.Props) => {
-  const [username, setUsername] = useCachedState<ConfigFormValue["username"]>("username");
-  const [password, setPassword] = useCachedState<ConfigFormValue["password"]>("password");
-  const [kingOfTimeUrl, setkingOfTimeUrl] = useCachedState<ConfigFormValue["kingOfTimeUrl"]>("kingOfTimeUrl");
-  const [tokenKey, setTokenKey] = useCachedState<ConfigFormValue["tokenKey"]>("tokenKey");
-  const [token, setToken] = useCachedState<ConfigFormValue["token"]>("token");
+const cache = new Cache();
 
-  const { handleSubmit, itemProps, setValue } = useForm<ConfigFormValue>({
+const getCachedValues = () => {
+  return Object.fromEntries(
+    configKeys.map((key) => {
+      const cachedValue = cache.get(key);
+      if (!cachedValue || cachedValue === "undefined") return [key, undefined];
+
+      try {
+        const parsedValue: unknown = JSON.parse(cachedValue);
+        return [key, typeof parsedValue === "string" ? parsedValue : undefined];
+      } catch {
+        return [key, cachedValue];
+      }
+    }),
+  );
+};
+
+const ConfigForm = ({ onSaved, initialValues, ...props }: ConfigFormsProps & { initialValues: ConfigFormValue }) => {
+  const { handleSubmit, itemProps } = useForm<ConfigFormValue>({
     onSubmit: async (values) => {
-      const updateValues = Object.entries(values).map(([key, value]) => LocalStorage.setItem(key, value));
-      await Promise.all(updateValues);
-      showToast({
-        style: Toast.Style.Success,
-        title: `更新しました`,
-        message: `Settings saved!`,
-      });
+      const error = getConfigError(values);
+      if (error) {
+        await showToast({
+          style: Toast.Style.Failure,
+          title: "設定を保存できません",
+          message: error,
+        });
+        return;
+      }
+
+      try {
+        await saveConfig(LocalStorage, values);
+        configKeys.forEach((key) => cache.remove(key));
+        await showToast({
+          style: Toast.Style.Success,
+          title: "更新しました",
+          message: "設定を保存しました",
+        });
+        await onSaved?.();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        await showToast({
+          style: Toast.Style.Failure,
+          title: "設定を保存できません",
+          message,
+        });
+      }
     },
     validation: {
+      kingOfTimeUrl: FormValidation.Required,
       username: FormValidation.Required,
       password: FormValidation.Required,
       token: FormValidation.Required,
       tokenKey: FormValidation.Required,
     },
-    initialValues: {
-      username,
-      password,
-      kingOfTimeUrl,
-      token,
-      tokenKey,
-    },
+    initialValues,
   });
 
   return (
@@ -55,51 +88,55 @@ export const ConfigForms = (props: Form.Props) => {
         title="打刻URL"
         placeholder="打刻画面のURLです"
         info="打刻画面のURLです"
-        onChange={(value: ConfigFormValue["kingOfTimeUrl"]) => {
-          setkingOfTimeUrl(value);
-          setValue("kingOfTimeUrl", value);
-        }}
       />
       <Form.TextField
         {...itemProps.username}
         title="ユーザーネーム"
         placeholder="打刻画面の名前です"
         info="打刻画面に表示されている名前です"
-        onChange={(value: ConfigFormValue["username"]) => {
-          setUsername(value);
-          setValue("username", value);
-        }}
       />
       <Form.PasswordField
         {...itemProps.password}
         title="パスワード"
         placeholder="打刻時のパスワードです"
         info="打刻時に入力されるパスワードです"
-        onChange={(value: ConfigFormValue["password"]) => {
-          setPassword(value);
-          setValue("password", value);
-        }}
       />
       <Form.TextField
         {...itemProps.tokenKey}
         title="トークン名"
         placeholder="打刻画面に付与されているcookieの名前です"
         info="打刻画面で、htjwt_** という名前のcookieが付与されているので、その名前を入力してください"
-        onChange={(value: ConfigFormValue["tokenKey"]) => {
-          setTokenKey(value);
-          setValue("tokenKey", value);
-        }}
       />
       <Form.PasswordField
         {...itemProps.token}
         title="トークン名で取得した値"
         placeholder="打刻画面に付与されているcookieの値です"
         info="打刻画面で、htjwt_** という名前のcookieが付与されているので、その値を入力してください"
-        onChange={(value: ConfigFormValue["token"]) => {
-          setToken(value);
-          setValue("token", value);
-        }}
       />
     </Form>
   );
+};
+
+export const ConfigForms = ({ onSaved, ...props }: ConfigFormsProps) => {
+  const { data, isLoading, error } = usePromise(async () => {
+    const snapshot = await loadConfigSnapshot(LocalStorage);
+    return getConfigInitialValues(snapshot.draft, getCachedValues());
+  });
+
+  if (error) {
+    return (
+      <Form {...props}>
+        <Form.Description text="設定を読み込めませんでした。Raycastを再起動して、もう一度お試しください。" />
+      </Form>
+    );
+  }
+
+  if (isLoading || !data) {
+    return (
+      <Form {...props}>
+        <Form.Description text="設定を読み込んでいます…" />
+      </Form>
+    );
+  }
+  return <ConfigForm {...props} onSaved={onSaved} initialValues={data} />;
 };
