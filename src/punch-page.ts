@@ -10,9 +10,11 @@ import {
   waitForVisiblePasswordInputValue,
 } from "./punch-waits";
 
-const INTERACTION_TIMEOUT_MS = 15_000;
-const PUNCH_COMPLETION_TIMEOUT_MS = 180_000;
+const INTERACTION_TIMEOUT_MS = 10_000; // 10秒で操作が完了しなければ、打刻画面の初期化に失敗したと判断
+const PUNCH_COMPLETION_TIMEOUT_MS = 10_000; // 10秒で打刻完了を確認できなければ、履歴反映の確認に失敗したと判断
 const RECORDER_DATE_ERROR = "打刻画面の日付を確認できないため、重複チェックを実行できませんでした。";
+const RECORDER_READY_ERROR = "打刻画面の初期化を10秒以内に確認できませんでした。もう一度お試しください。";
+const HISTORY_LOAD_ERROR = "打刻履歴を10秒以内に読み込めませんでした。通信状態を確認してもう一度お試しください。";
 
 type PunchAction = "attend" | "leave";
 type RecorderConfig = Pick<ConfigFormValue, "kingOfTimeUrl" | "token" | "tokenKey">;
@@ -96,6 +98,11 @@ const getHistoryCount = async (response: HTTPResponse) => {
   return historyCount;
 };
 
+const isRecorderEndpointResponse = (response: HTTPResponse, endpoint: string) => {
+  const pathname = new URL(response.url()).pathname.replace(/\/+$/u, "");
+  return pathname.split("/").at(-1) === endpoint;
+};
+
 export const prepareRecorderPage = async (page: Page, config: RecorderConfig) => {
   page.setDefaultTimeout(INTERACTION_TIMEOUT_MS);
   await page.goto(config.kingOfTimeUrl);
@@ -109,18 +116,41 @@ export const prepareRecorderPage = async (page: Page, config: RecorderConfig) =>
     secure: cookieUrl.protocol === "https:",
   });
 
-  const [historyResponse] = await Promise.all([
-    page.waitForResponse(
-      (response) =>
-        response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/get_log_list"),
-      { timeout: PUNCH_COMPLETION_TIMEOUT_MS },
-    ),
-    page.goto(config.kingOfTimeUrl),
-  ]);
+  const abortController = new AbortController();
+  const historyResponsePromise = page.waitForResponse(
+    (response) => isRecorderEndpointResponse(response, "get_log_list"),
+    { signal: abortController.signal, timeout: 0 },
+  );
+  // Prevent a rejection from being reported as unhandled while navigation is in progress.
+  void historyResponsePromise.catch(() => undefined);
 
-  const historyCount = await getHistoryCount(historyResponse);
-  await waitForHistoryEntriesRendered(page, historyCount, { timeout: INTERACTION_TIMEOUT_MS });
-  await waitForRecorderTranslationsLoaded(page, { timeout: PUNCH_COMPLETION_TIMEOUT_MS });
+  try {
+    // Start measuring the history timeout after navigation. The response listener
+    // is registered before navigation so that a fast response cannot be missed.
+    await page.goto(config.kingOfTimeUrl);
+
+    let historyReady: { kind: "rendered" } | { kind: "response"; response: HTTPResponse };
+    try {
+      historyReady = await Promise.race([
+        historyResponsePromise.then((response) => ({ kind: "response" as const, response })),
+        page
+          .waitForSelector("#log br", { signal: abortController.signal, timeout: INTERACTION_TIMEOUT_MS })
+          .then(() => ({ kind: "rendered" as const })),
+      ]);
+    } catch (error) {
+      if (error instanceof TimeoutError) throw new Error(HISTORY_LOAD_ERROR);
+      throw error;
+    }
+
+    // A rendered row is sufficient because KING OF TIME appends all rows in one
+    // synchronous loop. The response fallback is needed when the history is empty.
+    if (historyReady.kind === "response") {
+      const historyCount = await getHistoryCount(historyReady.response);
+      await waitForHistoryEntriesRendered(page, historyCount, { timeout: INTERACTION_TIMEOUT_MS });
+    }
+  } finally {
+    abortController.abort();
+  }
 };
 
 export const selectPunchAction = async (page: Page, action: PunchAction) => {
@@ -149,6 +179,13 @@ export const ensurePunchIsNotDuplicate = async (page: Page, action: PunchAction,
 };
 
 export const selectEmployee = async (page: Page, username: string) => {
+  try {
+    await waitForRecorderTranslationsLoaded(page, { timeout: INTERACTION_TIMEOUT_MS });
+  } catch (error) {
+    if (error instanceof TimeoutError) throw new Error(RECORDER_READY_ERROR);
+    throw error;
+  }
+
   await waitForSelectorAndClick(page, employeeSelector(username));
 };
 
@@ -169,8 +206,7 @@ export const submitPunchAndWaitForHistory = async (page: Page, action: PunchActi
     page.on("dialog", dialogHandler);
   });
   const recordResponsePromise = page.waitForResponse(
-    (response) =>
-      response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/record_timestamp_and_log"),
+    (response) => isRecorderEndpointResponse(response, "record_timestamp_and_log"),
     { signal: abortController.signal, timeout: PUNCH_COMPLETION_TIMEOUT_MS },
   );
 
