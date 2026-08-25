@@ -20,18 +20,19 @@
     "puppeteer": "^23.6.0"
   },
   "devDependencies": {
-    "@raycast/eslint-config": "1.0.5",
     "@types/node": "18.8.3",
     "@types/react": "18.0.9",
-    "eslint": "^8.55.0",
-    "prettier": "^3.1.1",
+    "oxfmt": "^0.65.0",
+    "oxlint": "^1.80.0",
     "typescript": "^5.3.3"
   },
   "scripts": {
     "build": "ray build -e dist",
     "dev": "ray develop",
-    "fix-lint": "ray lint --fix",
-    "lint": "ray lint",
+    "fix-lint": "oxlint --fix && oxfmt",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "lint": "oxlint && oxfmt --check",
     "publish": "npx @raycast/api@latest publish"
   }
 }
