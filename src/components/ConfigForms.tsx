@@ -1,4 +1,4 @@
-import { Action, ActionPanel, Cache, Form, LocalStorage, showToast, Toast } from "@raycast/api";
+import { Action, ActionPanel, Cache, Form, Icon, LocalStorage, showToast, Toast, useNavigation } from "@raycast/api";
 import { useForm, FormValidation, usePromise } from "@raycast/utils";
 import {
   configKeys,
@@ -6,8 +6,10 @@ import {
   getConfigError,
   getConfigInitialValues,
   loadConfigSnapshot,
+  requireConfig,
   saveConfig,
 } from "../configuration";
+import { ExportConfigForm, ImportConfigForm } from "./ConfigTransferForms";
 
 export type { ConfigFormValue } from "../configuration";
 
@@ -34,7 +36,8 @@ const getCachedValues = () => {
 };
 
 const ConfigForm = ({ onSaved, initialValues, ...props }: ConfigFormsProps & { initialValues: ConfigFormValue }) => {
-  const { handleSubmit, itemProps } = useForm<ConfigFormValue>({
+  const { push } = useNavigation();
+  const { handleSubmit, itemProps, reset, values } = useForm<ConfigFormValue>({
     onSubmit: async (values) => {
       const error = getConfigError(values);
       if (error) {
@@ -74,12 +77,35 @@ const ConfigForm = ({ onSaved, initialValues, ...props }: ConfigFormsProps & { i
     initialValues,
   });
 
+  const showExportForm = async () => {
+    try {
+      const config = requireConfig(values);
+      push(<ExportConfigForm config={config} />);
+    } catch (error) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "設定JSONを書き出せません",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
   return (
     <Form
       {...props}
       actions={
         <ActionPanel>
-          <Action.SubmitForm title="更新" onSubmit={handleSubmit} />
+          <ActionPanel.Section>
+            <Action.SubmitForm title="更新" onSubmit={handleSubmit} />
+          </ActionPanel.Section>
+          <ActionPanel.Section title="設定JSON">
+            <Action
+              title="JSONをインポート"
+              icon={Icon.Upload}
+              onAction={() => push(<ImportConfigForm onImport={(config) => reset(config)} />)}
+            />
+            <Action title="JSONをエクスポート" icon={Icon.Download} onAction={showExportForm} />
+          </ActionPanel.Section>
         </ActionPanel>
       }
     >
