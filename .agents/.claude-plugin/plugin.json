@@ -1,0 +1,8 @@
+{
+  "name": "Attend Kingoftime",
+  "description": "KING OF TIME の打刻をraycastで行う Agent Plugin",
+  "version": "1.0.0",
+  "author": {
+    "name": "yuyakinjo"
+  }
+}

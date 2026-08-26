@@ -1,0 +1,14 @@
+{
+  "name": "Attend Kingoftime",
+  "description": "Attend Kingoftime リポジトリ同梱の Agent Plugin マーケットプレイス",
+  "owner": {
+    "name": "yuyakinjo"
+  },
+  "plugins": [
+    {
+      "name": "attend-kingoftime",
+      "source": "./.agents",
+      "description": "KING OF TIME の打刻をraycastで行う Agent Plugin"
+    }
+  ]
+}

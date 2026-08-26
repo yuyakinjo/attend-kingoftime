@@ -2,29 +2,26 @@
 
 ※ まだ改良中です
 
-1. move your raycast workspace
+Raycast に「King of Time 打刻」コマンドを出すまでのセットアップ／アップデートは、同梱の `setup-local` スキルにすべて任せています。clone もスキルがやるので、まずはプラグインを入れるだけで OK です。
 
-```sh
-cd your workspace
+## 1. プラグインを追加
+
+Claude Code で実行する。
+
+```
+/plugin marketplace add yuyakinjo/attend-kingoftime
+/plugin install attend-kingoftime
 ```
 
-2. clone your repository
+## 2. スキルを実行
 
-```sh
-gh repo clone yuyakinjo/attend-kingoftime
+Claude Code に以下のように頼む。
+
+```
+claude /setup-local
 ```
 
-3. install dependencies
-
-```sh
-bun install --frozen-lockfile
-```
-
-4. build
-
-```sh
-bun run dev
-```
+初回セットアップかアップデートかはスキル側が自動で判断し、clone・依存インストール・ビルド・Raycast への登録まで案内してくれる。
 
 Done!
 Please see your raycast.
