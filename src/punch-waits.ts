@@ -38,7 +38,7 @@ const readHistoryLines = (log: Element) => {
     .filter(Boolean);
 };
 
-const newPunchHistoryEntryExists = ({ actionLabel, previousHistoryLines, username }: NewPunchHistoryEntry) => {
+const findNewPunchHistoryEntry = ({ actionLabel, previousHistoryLines, username }: NewPunchHistoryEntry) => {
   const log = document.querySelector<HTMLElement>("#log");
   if (!log) return false;
 
@@ -60,8 +60,8 @@ const newPunchHistoryEntryExists = ({ actionLabel, previousHistoryLines, usernam
       continue;
     }
 
-    const match = line.match(/^\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2}\s*(出勤|退勤)\s+(.+)$/u);
-    if (match?.[1] === actionLabel && match[2] === normalizedUsername) return true;
+    const match = line.match(/^(\d{1,2}\/\d{1,2})\s+(\d{1,2}:\d{2})\s*(出勤|退勤)\s+(.+)$/u);
+    if (match?.[3] === actionLabel && match[4] === normalizedUsername) return `${match[1]} ${match[2]}`;
   }
 
   return false;
@@ -93,5 +93,16 @@ export const waitForNewPunchHistoryEntry = async (
   expectedEntry: NewPunchHistoryEntry,
   options: WaitOptions,
 ) => {
-  await page.waitForFunction(newPunchHistoryEntryExists, { polling: "mutation", ...options }, expectedEntry);
+  const entry = await page.waitForFunction(
+    findNewPunchHistoryEntry,
+    { polling: "mutation", ...options },
+    expectedEntry,
+  );
+  try {
+    const punchedAt = await entry.jsonValue();
+    if (typeof punchedAt !== "string") throw new Error("新しい打刻履歴の日時を確認できませんでした。");
+    return punchedAt;
+  } finally {
+    await entry.dispose();
+  }
 };

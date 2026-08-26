@@ -8,18 +8,18 @@ const props = {
 };
 
 interface LeaveItemProps {
-  onPunchSuccess?: () => void;
+  onPunchSuccess?: (punchedAt?: string) => void;
   subtitle: string;
 }
 
-const onAction = async (onPunchSuccess?: () => void) => {
+const onAction = async (onPunchSuccess?: (punchedAt?: string) => void) => {
   await showToast(Toast.Style.Animated, `${props.label}...`);
   try {
     const config = await KingOfTime.GetConfigFrom(LocalStorage);
-    const { isFailed, isSuccess, error } = await new KingOfTime(config).punch(KingOfTime.Action.Leave);
+    const { isFailed, isSuccess, error, punchedAt } = await new KingOfTime(config).punch(KingOfTime.Action.Leave);
     if (isSuccess) {
+      onPunchSuccess?.(punchedAt);
       await showToast(Toast.Style.Success, `${props.message}`);
-      onPunchSuccess?.();
     }
     if (isFailed) await showToast(Toast.Style.Failure, `${error}`);
   } catch (error) {

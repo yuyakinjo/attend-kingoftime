@@ -152,24 +152,23 @@ export const prepareRecorderPage = async (page: Page, config: RecorderConfig) =>
     // is registered before navigation so that a fast response cannot be missed.
     await page.goto(config.kingOfTimeUrl);
 
-    let historyReady: { kind: "rendered" } | { kind: "response"; response: HTTPResponse };
     try {
-      historyReady = await Promise.race([
+      const historyReady = await Promise.race([
         historyResponsePromise.then((response) => ({ kind: "response" as const, response })),
         page
           .waitForSelector("#log br", { signal: abortController.signal, timeout: INTERACTION_TIMEOUT_MS })
           .then(() => ({ kind: "rendered" as const })),
       ]);
+
+      // A rendered row is sufficient because KING OF TIME appends all rows in one
+      // synchronous loop. The response fallback is needed when the history is empty.
+      if (historyReady.kind === "response") {
+        const historyCount = await getHistoryCount(historyReady.response);
+        await waitForHistoryEntriesRendered(page, historyCount, { timeout: INTERACTION_TIMEOUT_MS });
+      }
     } catch (error) {
       if (error instanceof TimeoutError) throw new Error(HISTORY_LOAD_ERROR);
       throw error;
-    }
-
-    // A rendered row is sufficient because KING OF TIME appends all rows in one
-    // synchronous loop. The response fallback is needed when the history is empty.
-    if (historyReady.kind === "response") {
-      const historyCount = await getHistoryCount(historyReady.response);
-      await waitForHistoryEntriesRendered(page, historyCount, { timeout: INTERACTION_TIMEOUT_MS });
     }
   } finally {
     abortController.abort();
@@ -239,6 +238,7 @@ export const enterPassword = async (page: Page, password: string) => {
 export const submitPunchAndWaitForHistory = async (page: Page, action: PunchAction, username: string) => {
   const previousHistoryLines = await readPunchHistoryLines(page);
   const abortController = new AbortController();
+  let recordObservationTimeout: ReturnType<typeof setTimeout> | undefined;
   let dialogHandler: ((dialog: Dialog) => void) | undefined;
   const dialogError = new Promise<never>((_, reject) => {
     dialogHandler = (dialog) => {
@@ -247,40 +247,71 @@ export const submitPunchAndWaitForHistory = async (page: Page, action: PunchActi
     };
     page.on("dialog", dialogHandler);
   });
-  const recordResponsePromise = page.waitForResponse(
-    (response) => isRecorderPostRequest(response.request(), "record_timestamp_and_log"),
+  const historyEntryPromise = waitForNewPunchHistoryEntry(
+    page,
+    { actionLabel: actionLabel[action], previousHistoryLines, username },
     { signal: abortController.signal, timeout: PUNCH_COMPLETION_TIMEOUT_MS },
   );
+  const historyResultPromise = historyEntryPromise.then(
+    (punchedAt) => ({ kind: "history" as const, punchedAt }),
+    (error: unknown) => ({ kind: "history-error" as const, error }),
+  );
+  const recordObservationPromise = page
+    .waitForResponse((response) => isRecorderPostRequest(response.request(), "record_timestamp_and_log"), {
+      signal: abortController.signal,
+      timeout: 0,
+    })
+    .then(async (response) => {
+      if (!response.ok()) throw new Error(`打刻リクエストに失敗しました (${response.status()})`);
+
+      const responseBody = (await response.text()).trim();
+      if (!responseBody.startsWith("result=OK")) {
+        throw new Error("打刻が受理されませんでした。KING OF TIMEの画面で状態を確認してください。");
+      }
+
+      return { kind: "accepted" as const };
+    });
+  const recordObservationTimeoutPromise = new Promise<{ kind: "unobserved" }>((resolve) => {
+    recordObservationTimeout = setTimeout(() => resolve({ kind: "unobserved" }), PUNCH_COMPLETION_TIMEOUT_MS);
+  });
+  const recordResultPromise = Promise.race([recordObservationPromise, recordObservationTimeoutPromise]);
+  const completionPromise = Promise.race([historyResultPromise, recordResultPromise, dialogError]);
+  // The history timer starts before clicking so that a fast DOM update cannot be missed.
+  void completionPromise.catch(() => undefined);
 
   try {
     await visibleSubmitButton(page).click();
-    const recordResponse = await Promise.race([recordResponsePromise, dialogError]);
-    if (!recordResponse.ok()) throw new Error(`打刻リクエストに失敗しました (${recordResponse.status()})`);
-
-    const recordResponseBody = await recordResponse.text();
-    if (!recordResponseBody.startsWith("result=OK")) {
-      throw new Error("打刻が受理されませんでした。KING OF TIMEの画面で状態を確認してください。");
-    }
-
     try {
-      await Promise.race([
-        waitForNewPunchHistoryEntry(
-          page,
-          { actionLabel: actionLabel[action], previousHistoryLines, username },
-          { signal: abortController.signal, timeout: PUNCH_COMPLETION_TIMEOUT_MS },
-        ),
-        dialogError,
-      ]);
+      const completion = await completionPromise;
+      if (completion.kind === "history") return completion.punchedAt;
+
+      if (completion.kind === "accepted") {
+        const historyResult = await Promise.race([historyResultPromise, dialogError]);
+        // result=OK is sufficient to treat the punch as successful. When the
+        // history DOM cannot be observed, the caller reloads it as a fallback.
+        return historyResult.kind === "history" ? historyResult.punchedAt : undefined;
+      }
+
+      if (completion.kind === "history-error") {
+        const recordResult = await Promise.race([recordResultPromise, dialogError]);
+        if (recordResult.kind === "accepted") return undefined;
+        throw completion.error;
+      }
+
+      const historyResult = await Promise.race([historyResultPromise, dialogError]);
+      if (historyResult.kind === "history") return historyResult.punchedAt;
+      throw historyResult.error;
     } catch (error) {
       if (error instanceof TimeoutError) {
         throw new Error(
-          "打刻処理は受理されましたが、履歴への反映を確認できませんでした。二重打刻を避けるため、KING OF TIMEの履歴を確認してから再実行してください。",
+          "打刻完了を10秒以内に確認できませんでした。二重打刻を避けるため、KING OF TIMEの履歴を確認してから再実行してください。",
         );
       }
       throw error;
     }
   } finally {
     abortController.abort();
+    if (recordObservationTimeout) clearTimeout(recordObservationTimeout);
     if (dialogHandler) page.off("dialog", dialogHandler);
   }
 };

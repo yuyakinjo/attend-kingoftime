@@ -1,6 +1,8 @@
 import { List, LocalStorage } from "@raycast/api";
 import { usePromise } from "@raycast/utils";
+import { useState } from "react";
 import { KingOfTime } from "../punch-script";
+import type { TodayPunchTimes } from "../punch-page";
 import { AttendItem } from "./AttendListItem";
 import { LeaveItem } from "./LeaveListItem";
 import { GoToAdminSite } from "./GoToAdminSite";
@@ -26,10 +28,19 @@ const getHistorySubtitle = (time: string | undefined, isLoading: boolean, error:
 };
 
 export const Punch = (props: List.Props) => {
+  const [latestPunchTimes, setLatestPunchTimes] = useState<TodayPunchTimes>({});
   const { data, error, isLoading, revalidate } = usePromise(loadTodayPunchTimes, [], {
     failureToastOptions: { title: "打刻履歴を取得できませんでした" },
   });
-  const revalidateHistory = () => void revalidate();
+  const revalidateHistory = () => {
+    setLatestPunchTimes({});
+    void revalidate();
+  };
+  const updateHistoryAfterPunch = (action: keyof TodayPunchTimes) => (punchedAt?: string) => {
+    if (!punchedAt) return void revalidate();
+
+    setLatestPunchTimes((current) => ({ ...current, [action]: punchedAt }));
+  };
 
   return (
     <List
@@ -39,8 +50,14 @@ export const Punch = (props: List.Props) => {
       navigationTitle={settings.navigationTitle}
       searchBarPlaceholder={settings.placeholder}
     >
-      <AttendItem subtitle={getHistorySubtitle(data?.attend, isLoading, error)} onPunchSuccess={revalidateHistory} />
-      <LeaveItem subtitle={getHistorySubtitle(data?.leave, isLoading, error)} onPunchSuccess={revalidateHistory} />
+      <AttendItem
+        subtitle={getHistorySubtitle(latestPunchTimes.attend ?? data?.attend, isLoading, error)}
+        onPunchSuccess={updateHistoryAfterPunch("attend")}
+      />
+      <LeaveItem
+        subtitle={getHistorySubtitle(latestPunchTimes.leave ?? data?.leave, isLoading, error)}
+        onPunchSuccess={updateHistoryAfterPunch("leave")}
+      />
       <GoToAdminSite />
       <RedirectToConfig onSaved={revalidateHistory} />
     </List>

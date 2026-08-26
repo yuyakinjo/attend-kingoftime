@@ -18,6 +18,14 @@ interface Props extends ConfigFormValue {
   devtools?: boolean;
 }
 
+interface PunchResult {
+  isSuccess: boolean;
+  isFailed: boolean;
+  isProcessing: boolean;
+  error: unknown;
+  punchedAt?: string;
+}
+
 export class KingOfTime {
   static Action = {
     Attend: "attend",
@@ -28,7 +36,7 @@ export class KingOfTime {
     return getStoredConfig(localStorage);
   };
 
-  public output = {
+  public output: PunchResult = {
     isSuccess: false,
     isFailed: false,
     isProcessing: false,
@@ -37,12 +45,23 @@ export class KingOfTime {
 
   constructor(private props: Props) {}
 
-  #start = () => ({ ...this.output, isProcessing: true });
+  #start = (): PunchResult => ({
+    isSuccess: false,
+    isFailed: false,
+    isProcessing: true,
+    error: "",
+  });
 
-  #success = () => ({ ...this.output, isSuccess: true, isProcessing: false });
+  #success = (punchedAt?: string): PunchResult => ({
+    isSuccess: true,
+    isFailed: false,
+    isProcessing: false,
+    error: "",
+    punchedAt,
+  });
 
-  #failed = (error: unknown) => ({
-    ...this.output,
+  #failed = (error: unknown): PunchResult => ({
+    isSuccess: false,
     isFailed: true,
     isProcessing: false,
     error,
@@ -71,16 +90,19 @@ export class KingOfTime {
   async punch(action: ValueOf<Action> = KingOfTime.Action.Attend) {
     this.output = this.#start();
     try {
+      let punchedAt: string | undefined;
       await this.#withPreparedPage(async (page) => {
         if (!this.props.dryRun) await ensurePunchIsNotDuplicate(page, action, this.props.username);
         await selectPunchAction(page, action);
         await selectEmployee(page, this.props.username);
         await enterPassword(page, this.props.password);
-        if (!this.props.dryRun) await submitPunchAndWaitForHistory(page, action, this.props.username);
+        if (!this.props.dryRun) punchedAt = await submitPunchAndWaitForHistory(page, action, this.props.username);
       });
-      return this.#success();
+      this.output = this.#success(punchedAt);
+      return this.output;
     } catch (error) {
-      return this.#failed(error);
+      this.output = this.#failed(error);
+      return this.output;
     }
   }
 }
