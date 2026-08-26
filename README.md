@@ -18,7 +18,7 @@ Claude Code で実行する。
 Claude Code に以下のように頼む。
 
 ```
-claude /setup-local
+codex /setup-local
 ```
 
 初回セットアップかアップデートかはスキル側が自動で判断し、clone・依存インストール・ビルド・Raycast への登録まで案内してくれる。
