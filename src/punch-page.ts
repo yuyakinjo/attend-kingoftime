@@ -118,8 +118,8 @@ const isRecorderEndpointUrl = (url: string, endpoint: string) => {
   return pathname.split("/").at(-1) === endpoint;
 };
 
-const isRecorderEndpointResponse = (response: HTTPResponse, endpoint: string) =>
-  isRecorderEndpointUrl(response.url(), endpoint);
+const isRecorderPostRequest = (request: HTTPRequest, endpoint: string) =>
+  request.method() === "POST" && isRecorderEndpointUrl(request.url(), endpoint);
 
 export const prepareRecorderPage = async (page: Page, config: RecorderConfig) => {
   page.setDefaultTimeout(INTERACTION_TIMEOUT_MS);
@@ -137,7 +137,7 @@ export const prepareRecorderPage = async (page: Page, config: RecorderConfig) =>
   const abortController = new AbortController();
   const historyRequests = new WeakSet<HTTPRequest>();
   const historyRequestHandler = (request: HTTPRequest) => {
-    if (isRecorderEndpointUrl(request.url(), "get_log_list")) historyRequests.add(request);
+    if (isRecorderPostRequest(request, "get_log_list")) historyRequests.add(request);
   };
   page.on("request", historyRequestHandler);
   const historyResponsePromise = page.waitForResponse((response) => historyRequests.has(response.request()), {
@@ -248,7 +248,7 @@ export const submitPunchAndWaitForHistory = async (page: Page, action: PunchActi
     page.on("dialog", dialogHandler);
   });
   const recordResponsePromise = page.waitForResponse(
-    (response) => isRecorderEndpointResponse(response, "record_timestamp_and_log"),
+    (response) => isRecorderPostRequest(response.request(), "record_timestamp_and_log"),
     { signal: abortController.signal, timeout: PUNCH_COMPLETION_TIMEOUT_MS },
   );
 
