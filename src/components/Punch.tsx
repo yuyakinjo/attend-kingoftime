@@ -1,6 +1,8 @@
-import { List, LocalStorage } from "@raycast/api";
-import { usePromise } from "@raycast/utils";
-import { useState } from "react";
+import { List } from "@raycast/api";
+import { useCachedState, usePromise } from "@raycast/utils";
+import { useRef } from "react";
+import type { ConfigFormValue } from "../configuration";
+import { createHistorySnapshot, getValidHistorySnapshot, type HistorySnapshot } from "../history-snapshot";
 import { KingOfTime } from "../punch-script";
 import type { TodayPunchTimes } from "../punch-page";
 import { AttendItem } from "./AttendListItem";
@@ -15,47 +17,88 @@ const settings = {
   placeholder: "打刻Typeを検索",
 };
 
-const loadTodayPunchTimes = async () => {
-  const config = await KingOfTime.GetConfigFrom(LocalStorage);
-  return new KingOfTime(config).getTodayPunchTimes();
+interface PunchProps extends List.Props {
+  config: ConfigFormValue;
+  onConfigSaved?: () => unknown | Promise<unknown>;
+}
+
+const loadTodayPunchSnapshot = async (config: ConfigFormValue) => {
+  const punchTimes = await new KingOfTime(config).getTodayPunchTimes();
+  return createHistorySnapshot(config, punchTimes);
 };
 
-const getHistorySubtitle = (time: string | undefined, isLoading: boolean, error: Error | undefined) => {
+const getHistorySubtitle = (
+  time: string | undefined,
+  hasSnapshot: boolean,
+  isLoading: boolean,
+  error: Error | undefined,
+) => {
   if (time) return time;
+  if (hasSnapshot) return "未打刻";
   if (isLoading) return "履歴を取得中…";
   if (error) return "履歴を取得できません";
   return "未打刻";
 };
 
-export const Punch = (props: List.Props) => {
-  const [latestPunchTimes, setLatestPunchTimes] = useState<TodayPunchTimes>({});
-  const { data, error, isLoading, revalidate } = usePromise(loadTodayPunchTimes, [], {
-    failureToastOptions: { title: "打刻履歴を取得できませんでした" },
+export const Punch = ({ config, onConfigSaved, ...props }: PunchProps) => {
+  const [cachedSnapshot, setCachedSnapshot] = useCachedState<HistorySnapshot | undefined>("latest-history", undefined, {
+    cacheNamespace: "attend-kingoftime.history.v1",
   });
-  const revalidateHistory = () => {
-    setLatestPunchTimes({});
+  const { data, error, isLoading, mutate, revalidate } = usePromise(loadTodayPunchSnapshot, [config], {
+    failureToastOptions: { title: "打刻履歴を取得できませんでした" },
+    onData: (snapshot) => setCachedSnapshot(snapshot),
+  });
+  const fetchedSnapshot = getValidHistorySnapshot(data, config);
+  const validCachedSnapshot = getValidHistorySnapshot(cachedSnapshot, config);
+  const displayedSnapshot = fetchedSnapshot ?? validCachedSnapshot;
+  const latestDisplayedSnapshot = useRef(displayedSnapshot);
+  latestDisplayedSnapshot.current = displayedSnapshot;
+
+  const revalidateHistory = async () => {
+    await onConfigSaved?.();
     void revalidate();
   };
-  const updateHistoryAfterPunch = (action: keyof TodayPunchTimes) => (punchedAt?: string) => {
-    if (!punchedAt) return void revalidate();
+  const updateHistoryAfterPunch = (action: keyof TodayPunchTimes) => async (punchedAt?: string) => {
+    if (!punchedAt) {
+      void revalidate();
+      return;
+    }
 
-    setLatestPunchTimes((current) => ({ ...current, [action]: punchedAt }));
+    const currentSnapshot = latestDisplayedSnapshot.current;
+    if (!currentSnapshot) {
+      void revalidate();
+      return;
+    }
+
+    const updatedSnapshot = createHistorySnapshot(config, {
+      ...currentSnapshot.times,
+      [action]: punchedAt,
+    });
+    await mutate(Promise.resolve(), {
+      optimisticUpdate: () => updatedSnapshot,
+      rollbackOnError: false,
+      shouldRevalidateAfter: false,
+    });
+    setCachedSnapshot(updatedSnapshot);
   };
+
+  const hasSnapshot = Boolean(displayedSnapshot);
+  const times = displayedSnapshot?.times;
 
   return (
     <List
       {...props}
       filtering={false}
-      isLoading={props.isLoading || isLoading}
+      isLoading={props.isLoading || (isLoading && !hasSnapshot)}
       navigationTitle={settings.navigationTitle}
       searchBarPlaceholder={settings.placeholder}
     >
       <AttendItem
-        subtitle={getHistorySubtitle(latestPunchTimes.attend ?? data?.attend, isLoading, error)}
+        subtitle={getHistorySubtitle(times?.attend, hasSnapshot, isLoading, error)}
         onPunchSuccess={updateHistoryAfterPunch("attend")}
       />
       <LeaveItem
-        subtitle={getHistorySubtitle(latestPunchTimes.leave ?? data?.leave, isLoading, error)}
+        subtitle={getHistorySubtitle(times?.leave, hasSnapshot, isLoading, error)}
         onPunchSuccess={updateHistoryAfterPunch("leave")}
       />
       <GoToAdminSite />

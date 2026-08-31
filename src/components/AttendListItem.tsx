@@ -8,17 +8,17 @@ const props = {
 };
 
 interface AttendItemProps {
-  onPunchSuccess?: (punchedAt?: string) => void;
+  onPunchSuccess?: (punchedAt?: string) => void | Promise<void>;
   subtitle: string;
 }
 
-const onAction = async (onPunchSuccess?: (punchedAt?: string) => void) => {
+const onAction = async (onPunchSuccess?: (punchedAt?: string) => void | Promise<void>) => {
   await showToast(Toast.Style.Animated, `${props.label}...`);
   try {
     const config = await KingOfTime.GetConfigFrom(LocalStorage);
     const { isFailed, isSuccess, error, punchedAt } = await new KingOfTime(config).punch(KingOfTime.Action.Attend);
     if (isSuccess) {
-      onPunchSuccess?.(punchedAt);
+      await onPunchSuccess?.(punchedAt);
       await showToast(Toast.Style.Success, `${props.message}`);
     }
     if (isFailed) await showToast(Toast.Style.Failure, `${error}`);

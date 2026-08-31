@@ -7,5 +7,11 @@ import { loadConfigSnapshot } from "./configuration";
 
 export default function Command() {
   const { isLoading, data, revalidate } = usePromise(() => loadConfigSnapshot(LocalStorage));
-  return isLoading ? <ListEmptyView /> : data?.config ? <Punch /> : <ConfigForms onSaved={revalidate} />;
+  return data?.config ? (
+    <Punch config={data.config} onConfigSaved={revalidate} />
+  ) : isLoading ? (
+    <ListEmptyView />
+  ) : (
+    <ConfigForms onSaved={revalidate} />
+  );
 }

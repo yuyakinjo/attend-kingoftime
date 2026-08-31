@@ -1,5 +1,6 @@
 import { TimeoutError, type Dialog, type HTTPRequest, type HTTPResponse, type Page } from "puppeteer";
 import type { ConfigFormValue } from "./configuration";
+import { getCachedRecorderTarget, saveCachedRecorderTarget, type RecorderTarget } from "./recorder-host-cache";
 import {
   readPunchHistoryLines,
   readRecorderDate,
@@ -121,19 +122,26 @@ const isRecorderEndpointUrl = (url: string, endpoint: string) => {
 const isRecorderPostRequest = (request: HTTPRequest, endpoint: string) =>
   request.method() === "POST" && isRecorderEndpointUrl(request.url(), endpoint);
 
-export const prepareRecorderPage = async (page: Page, config: RecorderConfig) => {
-  page.setDefaultTimeout(INTERACTION_TIMEOUT_MS);
-  await page.goto(config.kingOfTimeUrl);
+const recorderTargetFromUrl = (value: string): RecorderTarget => {
+  const url = new URL(value);
+  if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("打刻画面の接続先を確認できませんでした");
+  return { hostname: url.hostname, protocol: url.protocol };
+};
 
-  const cookieUrl = new URL(page.url());
+const recorderTargetsMatch = (left: RecorderTarget, right: RecorderTarget) =>
+  left.hostname === right.hostname && left.protocol === right.protocol;
+
+const setRecorderCookie = async (page: Page, config: RecorderConfig, target: RecorderTarget) => {
   await page.browserContext().setCookie({
     name: config.tokenKey,
     value: config.token,
-    domain: cookieUrl.hostname,
+    domain: target.hostname,
     path: "/",
-    secure: cookieUrl.protocol === "https:",
+    secure: target.protocol === "https:",
   });
+};
 
+const navigateAndWaitForHistory = async (page: Page, config: RecorderConfig, expectedTarget?: RecorderTarget) => {
   const abortController = new AbortController();
   const historyRequests = new WeakSet<HTTPRequest>();
   const historyRequestHandler = (request: HTTPRequest) => {
@@ -148,9 +156,11 @@ export const prepareRecorderPage = async (page: Page, config: RecorderConfig) =>
   void historyResponsePromise.catch(() => undefined);
 
   try {
-    // Start measuring the history timeout after navigation. The response listener
-    // is registered before navigation so that a fast response cannot be missed.
     await page.goto(config.kingOfTimeUrl);
+    const actualTarget = recorderTargetFromUrl(page.url());
+    if (expectedTarget && !recorderTargetsMatch(actualTarget, expectedTarget)) {
+      return { kind: "redirected" as const, target: actualTarget };
+    }
 
     try {
       const historyReady = await Promise.race([
@@ -170,9 +180,40 @@ export const prepareRecorderPage = async (page: Page, config: RecorderConfig) =>
       if (error instanceof TimeoutError) throw new Error(HISTORY_LOAD_ERROR);
       throw error;
     }
+    return { kind: "ready" as const, target: actualTarget };
   } finally {
     abortController.abort();
     page.off("request", historyRequestHandler);
+  }
+};
+
+export const prepareRecorderPage = async (page: Page, config: RecorderConfig) => {
+  page.setDefaultTimeout(INTERACTION_TIMEOUT_MS);
+  const cachedTarget = await getCachedRecorderTarget(config).catch(() => undefined);
+
+  let readyTarget: RecorderTarget;
+  let cacheNeedsUpdate = !cachedTarget;
+  if (cachedTarget) {
+    await setRecorderCookie(page, config, cachedTarget);
+    const cachedNavigation = await navigateAndWaitForHistory(page, config, cachedTarget);
+    if (cachedNavigation.kind === "ready") {
+      readyTarget = cachedNavigation.target;
+    } else {
+      cacheNeedsUpdate = true;
+      await setRecorderCookie(page, config, cachedNavigation.target);
+      const recoveryNavigation = await navigateAndWaitForHistory(page, config);
+      readyTarget = recoveryNavigation.target;
+    }
+  } else {
+    await page.goto(config.kingOfTimeUrl);
+    const resolvedTarget = recorderTargetFromUrl(page.url());
+    await setRecorderCookie(page, config, resolvedTarget);
+    const navigation = await navigateAndWaitForHistory(page, config);
+    readyTarget = navigation.target;
+  }
+
+  if (cacheNeedsUpdate) {
+    await saveCachedRecorderTarget(config, readyTarget).catch(() => undefined);
   }
 };
 
