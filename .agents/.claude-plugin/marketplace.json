@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "attend-kingoftime",
-      "source": "./.agents",
+      "source": "./",
       "description": "KING OF TIME の打刻をraycastで行う Agent Plugin"
     }
   ]
