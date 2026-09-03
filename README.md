@@ -4,7 +4,7 @@
 
 Raycast に「King of Time 打刻」コマンドを出すまでのセットアップ／アップデートは、同梱の `setup-local` スキルにすべて任せています。clone もスキルがやるので、まずはプラグインを入れるだけで OK です。
 
-##  スキルを実行
+## スキルを実行
 
 Agent(copilot, codex, claude) に以下のように頼む。
 

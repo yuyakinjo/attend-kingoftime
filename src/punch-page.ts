@@ -1,5 +1,6 @@
 import { TimeoutError, type Dialog, type HTTPRequest, type HTTPResponse, type Page } from "puppeteer";
 import type { ConfigFormValue } from "./configuration";
+import { getPunchActionBlockReason, type PunchAction, type TodayPunchTimes } from "./punch-policy";
 import { getCachedRecorderTarget, saveCachedRecorderTarget, type RecorderTarget } from "./recorder-host-cache";
 import {
   readPunchHistoryLines,
@@ -13,22 +14,16 @@ import {
 
 const INTERACTION_TIMEOUT_MS = 10_000; // 10秒で操作が完了しなければ、打刻画面の初期化に失敗したと判断
 const PUNCH_COMPLETION_TIMEOUT_MS = 10_000; // 10秒で打刻完了を確認できなければ、履歴反映の確認に失敗したと判断
-const RECORDER_DATE_ERROR = "打刻画面の日付を確認できないため、重複チェックを実行できませんでした。";
+const RECORDER_DATE_ERROR = "打刻画面の日付を確認できないため、打刻可否を確認できませんでした。";
 const RECORDER_READY_ERROR = "打刻画面の初期化を10秒以内に確認できませんでした。もう一度お試しください。";
 const HISTORY_LOAD_ERROR = "打刻履歴を10秒以内に読み込めませんでした。通信状態を確認してもう一度お試しください。";
 const HISTORY_DATE_ERROR = "打刻画面の日付を確認できないため、本日の打刻履歴を取得できませんでした。";
 
-type PunchAction = "attend" | "leave";
 type RecorderConfig = Pick<ConfigFormValue, "kingOfTimeUrl" | "token" | "tokenKey">;
 
 interface PunchHistoryEntry {
   date: string;
   time: string;
-}
-
-export interface TodayPunchTimes {
-  attend?: string;
-  leave?: string;
 }
 
 const actionSelector: Record<PunchAction, string> = {
@@ -221,7 +216,7 @@ export const selectPunchAction = async (page: Page, action: PunchAction) => {
   await waitForSelectorAndClick(page, actionSelector[action]);
 };
 
-export const ensurePunchIsNotDuplicate = async (page: Page, action: PunchAction, username: string) => {
+export const ensurePunchIsAllowed = async (page: Page, action: PunchAction, username: string) => {
   let recorderHistory: Awaited<ReturnType<typeof readCurrentRecorderHistory>>;
   try {
     recorderHistory = await readCurrentRecorderHistory(page);
@@ -233,13 +228,30 @@ export const ensurePunchIsNotDuplicate = async (page: Page, action: PunchAction,
   const { expectedDate, historyLines } = recorderHistory;
   if (!expectedDate) throw new Error(RECORDER_DATE_ERROR);
 
-  const duplicateEntry = findPunchEntry(historyLines, expectedDate, action, username);
+  const entries = {
+    attend: findPunchEntry(historyLines, expectedDate, "attend", username),
+    leave: findPunchEntry(historyLines, expectedDate, "leave", username),
+  };
+  const times: TodayPunchTimes = {
+    attend: formatPunchDateTime(entries.attend),
+    leave: formatPunchDateTime(entries.leave),
+  };
+  const blockReason = getPunchActionBlockReason(times, action);
 
-  if (duplicateEntry) {
+  if (blockReason === "duplicate") {
+    const duplicateEntry = entries[action]!;
     throw new Error(
       `本日 ${duplicateEntry.time} にすでに「${actionLabel[action]}」を打刻済みです。重複打刻を防ぐため処理を中止しました。`,
     );
   }
+
+  if (blockReason === "day-closed") {
+    throw new Error(
+      `本日 ${entries.leave!.time} にすでに「退勤」を打刻済みです。退勤後に「出勤」は打刻できません。打刻漏れは申請で修正してください。`,
+    );
+  }
+
+  return times;
 };
 
 export const readTodayPunchTimes = async (page: Page, username: string): Promise<TodayPunchTimes> => {

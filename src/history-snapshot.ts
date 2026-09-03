@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { configKeys, type ConfigFormValue } from "./configuration";
-import type { TodayPunchTimes } from "./punch-page";
+import type { TodayPunchTimes } from "./punch-policy";
 
 export interface HistorySnapshot {
   version: 1;
@@ -15,6 +15,8 @@ const getDateKey = (date: Date) => {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 };
+
+export const isSameLocalDate = (left: Date, right: Date) => getDateKey(left) === getDateKey(right);
 
 export const getHistoryConfigScope = (config: ConfigFormValue) => {
   const values = configKeys.map((key) => config[key]);

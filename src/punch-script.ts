@@ -2,15 +2,15 @@ import type { LocalStorage } from "@raycast/api";
 import puppeteer, { type Browser, type Page } from "puppeteer";
 import { getStoredConfig, type ConfigFormValue } from "./configuration";
 import {
-  ensurePunchIsNotDuplicate,
+  ensurePunchIsAllowed,
   enterPassword,
   prepareRecorderPage,
   readTodayPunchTimes,
   selectEmployee,
   selectPunchAction,
   submitPunchAndWaitForHistory,
-  type TodayPunchTimes,
 } from "./punch-page";
+import { addPunchTime, type TodayPunchTimes } from "./punch-policy";
 import type { Action, ValueOf } from "./types/types";
 
 interface Props extends ConfigFormValue {
@@ -24,6 +24,7 @@ interface PunchResult {
   isProcessing: boolean;
   error: unknown;
   punchedAt?: string;
+  todayPunchTimes?: TodayPunchTimes;
 }
 
 export class KingOfTime {
@@ -52,12 +53,13 @@ export class KingOfTime {
     error: "",
   });
 
-  #success = (punchedAt?: string): PunchResult => ({
+  #success = (punchedAt?: string, todayPunchTimes?: TodayPunchTimes): PunchResult => ({
     isSuccess: true,
     isFailed: false,
     isProcessing: false,
     error: "",
     punchedAt,
+    todayPunchTimes,
   });
 
   #failed = (error: unknown): PunchResult => ({
@@ -91,14 +93,18 @@ export class KingOfTime {
     this.output = this.#start();
     try {
       let punchedAt: string | undefined;
+      let todayPunchTimes: TodayPunchTimes | undefined;
       await this.#withPreparedPage(async (page) => {
-        if (!this.props.dryRun) await ensurePunchIsNotDuplicate(page, action, this.props.username);
+        if (!this.props.dryRun) todayPunchTimes = await ensurePunchIsAllowed(page, action, this.props.username);
         await selectPunchAction(page, action);
         await selectEmployee(page, this.props.username);
         await enterPassword(page, this.props.password);
-        if (!this.props.dryRun) punchedAt = await submitPunchAndWaitForHistory(page, action, this.props.username);
+        if (!this.props.dryRun) {
+          punchedAt = await submitPunchAndWaitForHistory(page, action, this.props.username);
+          todayPunchTimes = punchedAt ? addPunchTime(todayPunchTimes ?? {}, action, punchedAt) : undefined;
+        }
       });
-      this.output = this.#success(punchedAt);
+      this.output = this.#success(punchedAt, todayPunchTimes);
       return this.output;
     } catch (error) {
       this.output = this.#failed(error);
