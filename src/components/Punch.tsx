@@ -117,6 +117,7 @@ export const Punch = ({ config, onConfigSaved, ...props }: PunchProps) => {
       <AttendItem
         key={action}
         isActionable={isActionable}
+        isCompleted={displayState.completed.includes(action)}
         onPunchFailure={refreshHistory}
         subtitle={subtitle}
         onPunchSuccess={updateHistoryAfterPunch}
@@ -125,6 +126,7 @@ export const Punch = ({ config, onConfigSaved, ...props }: PunchProps) => {
       <LeaveItem
         key={action}
         isActionable={isActionable}
+        isCompleted={displayState.completed.includes(action)}
         onPunchFailure={refreshHistory}
         subtitle={subtitle}
         onPunchSuccess={updateHistoryAfterPunch}
