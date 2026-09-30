@@ -1,15 +1,15 @@
-import { Action, ActionPanel, List, LocalStorage, Toast, showToast } from "@raycast/api";
+import { Action, ActionPanel, Color, Icon, List, LocalStorage, Toast, showToast } from "@raycast/api";
 import type { TodayPunchTimes } from "../punch-policy";
 import { KingOfTime } from "../punch-script";
-import { iconUrl } from "./Punch";
 
 const props = {
-  label: `出勤 🏢🏃🏻‍♀️`,
+  label: "出勤",
   message: "おはようございます🌞",
 };
 
 interface AttendItemProps {
   isActionable?: boolean;
+  isCompleted: boolean;
   onPunchFailure?: () => void;
   onPunchSuccess?: (todayPunchTimes?: TodayPunchTimes) => void | Promise<void>;
   subtitle: string;
@@ -40,13 +40,19 @@ const onAction = async (
   }
 };
 
-export const AttendItem = ({ isActionable = true, onPunchFailure, onPunchSuccess, subtitle }: AttendItemProps) => (
+export const AttendItem = ({
+  isActionable = true,
+  isCompleted,
+  onPunchFailure,
+  onPunchSuccess,
+  subtitle,
+}: AttendItemProps) => (
   <>
     <List.Item
       id="attend"
       title={props.label}
       subtitle={subtitle}
-      icon={{ source: iconUrl }}
+      icon={{ source: Icon.CircleFilled, tintColor: isCompleted ? Color.Green : Color.SecondaryText }}
       actions={
         isActionable ? (
           <ActionPanel>

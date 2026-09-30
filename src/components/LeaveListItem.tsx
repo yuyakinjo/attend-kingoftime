@@ -1,15 +1,15 @@
-import { Action, ActionPanel, List, LocalStorage, Toast, showToast } from "@raycast/api";
+import { Action, ActionPanel, Color, Icon, List, LocalStorage, Toast, showToast } from "@raycast/api";
 import type { TodayPunchTimes } from "../punch-policy";
 import { KingOfTime } from "../punch-script";
-import { iconUrl } from "./Punch";
 
 const props = {
-  label: `退勤 🏠🏃🏻`,
+  label: "退勤",
   message: "お疲れ様でした👋🏻",
 };
 
 interface LeaveItemProps {
   isActionable?: boolean;
+  isCompleted: boolean;
   onPunchFailure?: () => void;
   onPunchSuccess?: (todayPunchTimes?: TodayPunchTimes) => void | Promise<void>;
   subtitle: string;
@@ -38,13 +38,19 @@ const onAction = async (
   }
 };
 
-export const LeaveItem = ({ isActionable = true, onPunchFailure, onPunchSuccess, subtitle }: LeaveItemProps) => (
+export const LeaveItem = ({
+  isActionable = true,
+  isCompleted,
+  onPunchFailure,
+  onPunchSuccess,
+  subtitle,
+}: LeaveItemProps) => (
   <>
     <List.Item
       id="leave"
       title={props.label}
       subtitle={subtitle}
-      icon={{ source: iconUrl }}
+      icon={{ source: Icon.CircleFilled, tintColor: isCompleted ? Color.Green : Color.SecondaryText }}
       actions={
         isActionable ? (
           <ActionPanel>
